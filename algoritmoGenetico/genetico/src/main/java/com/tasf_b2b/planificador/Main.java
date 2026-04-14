@@ -18,9 +18,9 @@ public class Main {
 
         // 2. Construir las rutas relativas de forma segura usando Paths.get()
         // NOTA: Asegúrate de que tu carpeta se llame exactamente "data" (o cámbialo a "datos" aquí)
-        Path rutaAeropuertos = Paths.get("C:\\Users\\frank\\Desktop\\Cursos 2026 - 1\\Proyecto de Diseño y Desarrollo de Software\\semana4\\algoritmoGenetico_PDDS\\algoritmoGenetico\\genetico\\data\\aeropuertos.txt");
-        Path rutaVuelos = Paths.get("C:\\Users\\frank\\Desktop\\Cursos 2026 - 1\\Proyecto de Diseño y Desarrollo de Software\\semana4\\algoritmoGenetico_PDDS\\algoritmoGenetico\\genetico\\data\\planes_vuelo.txt");
-        Path rutaEnvios = Paths.get("C:\\Users\\frank\\Desktop\\Cursos 2026 - 1\\Proyecto de Diseño y Desarrollo de Software\\semana4\\algoritmoGenetico_PDDS\\algoritmoGenetico\\genetico\\data\\_envios_EBCI_.txt");
+        Path rutaAeropuertos = Paths.get(directorioRaiz, "genetico","data", "aeropuertos.txt");
+        Path rutaVuelos = Paths.get(directorioRaiz, "genetico","data", "planes_vuelo.txt");
+        Path rutaEnvios = Paths.get(directorioRaiz, "genetico","data", "_envios_EBCI_.txt");
 
         try {
             // 2. Cargar los datos usando tu Utils

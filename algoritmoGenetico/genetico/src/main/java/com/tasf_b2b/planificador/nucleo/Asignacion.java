@@ -1,6 +1,7 @@
 package com.tasf_b2b.planificador.nucleo;
 
 import com.tasf_b2b.planificador.dominio.Envio;
+import com.tasf_b2b.planificador.utils.UtilArchivos;
 
 public class Asignacion {
     public Envio envio;           // El envío original
@@ -12,14 +13,20 @@ public class Asignacion {
         this.envio = envio;
         this.ruta = ruta;
         
-        // ¡Aquí está el parche! Añadimos ruta.vuelos == null
         if (ruta == null || ruta.vuelos == null || ruta.vuelos.isEmpty()) {
             this.estado = "SIN_RUTA";
             this.retrasoHoras = 0;
         } else {
             this.estado = ruta.cumpleSLA ? "ENTREGADO" : "CON_RETRASO";
-            // Si el SLA era 24h y tardó 26h, el retraso es 2.
-            this.retrasoHoras = Math.max(0, ruta.tiempoTotalHoras - 24); 
+            
+            // Calculamos cuál era el SLA esperado para este envío
+            String contOrigen = UtilArchivos.obtenerContinente(envio.origen);
+            String contDestino = UtilArchivos.obtenerContinente(envio.destino);
+            int slaEsperado = contOrigen.equals(contDestino) ? 24 : 48;
+            
+            // Restamos el tiempo total menos el SLA esperado. 
+            // Si llegó antes (ej. 20h - 24h = -4), Math.max lo deja en 0 retraso.
+            this.retrasoHoras = Math.max(0, ruta.tiempoTotalHoras - slaEsperado); 
         }
     }
 }

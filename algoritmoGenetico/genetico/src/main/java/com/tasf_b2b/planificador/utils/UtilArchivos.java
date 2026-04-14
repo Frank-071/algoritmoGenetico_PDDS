@@ -119,11 +119,18 @@ public class UtilArchivos {
                 String idCliente = f[6].trim();
                 
                 // NUEVA LÍNEA PARA PRUEBA DE DEBUG:
-                if (envios.size() >= 50) break;
+                //if (envios.size() >= 50) break;
 
                 envios.add(new Envio(idPedido, origen, destino, fecha, hh, mm, cantidad, idCliente));
             } catch (Exception e) {}
         }
         return envios;
+    }
+
+    public static String obtenerContinente(String codigoOACI) {
+        char inicial = codigoOACI.toUpperCase().charAt(0);
+        if (inicial == 'S' || inicial == 'K') return "AMERICA";
+        if (inicial == 'E' || inicial == 'L') return "EUROPA";
+        return "ASIA"; // Para O, V, U, etc.
     }
 }

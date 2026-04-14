@@ -1,6 +1,8 @@
 package com.tasf_b2b.planificador.nucleo;
 
 import com.tasf_b2b.planificador.dominio.*;
+import com.tasf_b2b.planificador.utils.UtilArchivos;
+
 import java.util.*;
 
 public class PlanificadorGa {
@@ -53,19 +55,47 @@ public class PlanificadorGa {
     }
 
     private void calcularFitness(Individuo ind) {
-        double puntaje = 0;
-        
-        for (Ruta r : ind.asignaciones.values()) {
-            // Si la ruta no existe o no tiene vuelos, aplicamos una multa severa pero FINITA.
-            if (r == null || r.vuelos == null || r.vuelos.isEmpty() || Double.isInfinite(r.tiempoTotalHoras)) {
-                puntaje += 100000; // Castigo de 100,000 puntos por paquete huérfano
-            } else {
-                puntaje += r.tiempoTotalHoras;
-                if (!r.cumpleSLA) puntaje += params.penalidadSLA;
+        double fitnessTotal = 0;
+        Map<Integer, Integer> cargaVuelos = new HashMap<>(); 
+        Map<String, Integer> ocupacionAlmacenes = new HashMap<>(); // ¡Ahora sí la usamos!
+
+        for (Map.Entry<Envio, Ruta> entrada : ind.asignaciones.entrySet()) {
+            Envio e = entrada.getKey();
+            Ruta r = entrada.getValue();
+
+            // 1. Penalización Letal por no encontrar ruta
+            if (r.vuelos == null || r.vuelos.isEmpty()) {
+                fitnessTotal += 100000;
+                continue;
+            }
+
+            // 2. Penalización por SLA
+            if (!r.cumpleSLA) {
+                fitnessTotal += (r.tiempoTotalHoras * params.penalidadSLA);
+            }
+
+            // 3 y 4. Validación de Capacidad de Vuelos y Almacenes
+            for (Vuelo v : r.vuelos) {
+                // Sumar al vuelo
+                int cargaActualVuelo = cargaVuelos.getOrDefault(v.id, 0);
+                if (cargaActualVuelo + e.cantidad > v.capacidad) {
+                    fitnessTotal += 50000; // Penalización por sobrecarga de vuelo
+                }
+                cargaVuelos.put(v.id, cargaActualVuelo + e.cantidad);
+
+                // Sumar al aeropuerto de destino de este vuelo (escala o destino final)
+                int ocupacionActualAlmacen = ocupacionAlmacenes.getOrDefault(v.destino, 0);
+                int nuevaOcupacion = ocupacionActualAlmacen + e.cantidad;
+                
+                // NOTA: Como límite asumimos 500 (el mínimo del alcance) para simplificar, 
+                // o podrías cruzarlo con tu objeto Aeropuerto si lo pasas al Planificador.
+                if (nuevaOcupacion > 500) { 
+                    fitnessTotal += 50000; // Penalización Letal por colapso de almacén
+                }
+                ocupacionAlmacenes.put(v.destino, nuevaOcupacion);
             }
         }
-        
-        ind.fitness = puntaje;
+        ind.fitness = fitnessTotal;
     }
 
     private Individuo seleccionarPadre(List<Individuo> poblacion) {
@@ -96,7 +126,11 @@ public class PlanificadorGa {
         List<Vuelo> nuevaRutaVuelos = grafo.buscarRutaAleatoria(e.origen, e.destino, e.horaIngresoMin, 3);
         if (nuevaRutaVuelos != null) {
             // CAMBIO AQUÍ: Pasamos 'e' directamente
-            ind.asignaciones.put(e, new Ruta(nuevaRutaVuelos, e.horaIngresoMin, 24));
+            String contOrigen = UtilArchivos.obtenerContinente(e.origen);
+            String contDestino = UtilArchivos.obtenerContinente(e.destino);
+            int sla = contOrigen.equals(contDestino) ? 24 : 48;
+
+            ind.asignaciones.put(e, new Ruta(nuevaRutaVuelos, e.horaIngresoMin, sla));
         }
     }
 
@@ -107,7 +141,11 @@ public class PlanificadorGa {
             for (Envio e : envios) {
                 List<Vuelo> vRuta = grafo.buscarRutaAleatoria(e.origen, e.destino, e.horaIngresoMin, 3);
                 // CAMBIO AQUÍ: Pasamos 'e' directamente
-                ind.asignaciones.put(e, new Ruta(vRuta, e.horaIngresoMin, 24));
+                String contOrigen = UtilArchivos.obtenerContinente(e.origen);
+                String contDestino = UtilArchivos.obtenerContinente(e.destino);
+                int sla = contOrigen.equals(contDestino) ? 24 : 48;
+
+                ind.asignaciones.put(e, new Ruta(vRuta, e.horaIngresoMin, sla));
             }
             lista.add(ind);
         }
