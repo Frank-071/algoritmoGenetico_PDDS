@@ -54,12 +54,17 @@ public class PlanificadorGa {
 
     private void calcularFitness(Individuo ind) {
         double puntaje = 0;
-        // Penalidad por tiempo total
+        
         for (Ruta r : ind.asignaciones.values()) {
-            puntaje += r.tiempoTotalHoras;
-            if (!r.cumpleSLA) puntaje += params.penalidadSLA;
+            // Si la ruta no existe o no tiene vuelos, aplicamos una multa severa pero FINITA.
+            if (r == null || r.vuelos == null || r.vuelos.isEmpty() || Double.isInfinite(r.tiempoTotalHoras)) {
+                puntaje += 100000; // Castigo de 100,000 puntos por paquete huérfano
+            } else {
+                puntaje += r.tiempoTotalHoras;
+                if (!r.cumpleSLA) puntaje += params.penalidadSLA;
+            }
         }
-        // Aquí podrías agregar penalidades por capacidad de Vuelo o Almacén
+        
         ind.fitness = puntaje;
     }
 
