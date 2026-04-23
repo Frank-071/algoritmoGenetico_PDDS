@@ -19,8 +19,16 @@ public class Ruta {
         Vuelo ultimoVuelo = vuelos.get(vuelos.size() - 1);
         int tiempoLlegada = ultimoVuelo.llegadaMin;
         
+        int duracionMinutos;
         // Tiempo desde que entró al sistema hasta que llegó al destino final
-        int duracionMinutos = tiempoLlegada - horaIngresoMin;
+        if(horaIngresoMin > tiempoLlegada) {
+            // ejemplo: tiempoLlegada (1am) - horaIngreso (6pm del día anterior) entonces
+            // 1 - 18 + 24 = 7 horas. Que es la diferencia entre 6pm y 1am del día siguiente.
+            duracionMinutos = tiempoLlegada - horaIngresoMin + 24*60;
+        }
+        else {
+            duracionMinutos = tiempoLlegada - horaIngresoMin;
+        }
         this.tiempoTotalHoras = duracionMinutos / 60.0;
         this.cumpleSLA = this.tiempoTotalHoras <= slaHoras;
     }
