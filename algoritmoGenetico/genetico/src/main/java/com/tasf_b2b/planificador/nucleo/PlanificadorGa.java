@@ -57,7 +57,7 @@ public class PlanificadorGa {
     private void calcularFitness(Individuo ind) {
         double fitnessTotal = 0;
         Map<Integer, Integer> cargaVuelos = new HashMap<>(); 
-        Map<String, Integer> ocupacionAlmacenes = new HashMap<>(); // ¡Ahora sí la usamos!
+        Map<String, Integer> ocupacionAlmacenes = new HashMap<>();
 
         for (Map.Entry<Envio, Ruta> entrada : ind.asignaciones.entrySet()) {
             Envio e = entrada.getKey();
@@ -140,7 +140,6 @@ public class PlanificadorGa {
             Individuo ind = new Individuo();
             for (Envio e : envios) {
                 List<Vuelo> vRuta = grafo.buscarRutaAleatoria(e.origen, e.destino, e.horaIngresoMin, 3);
-                // CAMBIO AQUÍ: Pasamos 'e' directamente
                 String contOrigen = UtilArchivos.obtenerContinente(e.origen);
                 String contDestino = UtilArchivos.obtenerContinente(e.destino);
                 int sla = contOrigen.equals(contDestino) ? 24 : 48;

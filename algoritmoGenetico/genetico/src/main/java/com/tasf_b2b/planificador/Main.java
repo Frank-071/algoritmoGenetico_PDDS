@@ -36,13 +36,12 @@ public class Main {
         System.out.println("Directorio de trabajo actual: " + directorioRaiz);
 
         // 2. Construir las rutas relativas de forma segura usando Paths.get()
-        // NOTA: Asegúrate de que tu carpeta se llame exactamente "data" (o cámbialo a "datos" aquí)
         Path rutaAeropuertos = resolverRutaData(directorioRaiz, "aeropuertos.txt");
         Path rutaVuelos = resolverRutaData(directorioRaiz, "planes_vuelo.txt");
         Path rutaEnvios = resolverRutaData(directorioRaiz, "_envios_EBCI_.txt");
 
         try {
-            // 2. Cargar los datos usando tu Utils
+            // 2. Cargar los datos usando Utils
             System.out.println("Cargando datos...");
             Map<String, Aeropuerto> mapaAeropuertos = UtilArchivos.cargarAeropuertos(rutaAeropuertos);
             Set<String> iatasValidas = mapaAeropuertos.keySet();
@@ -50,12 +49,12 @@ public class Main {
             List<Vuelo> vuelos = UtilArchivos.cargarVuelos(rutaVuelos, iatasValidas);
             List<Envio> envios = UtilArchivos.cargarEnvios(rutaEnvios, iatasValidas);
 
-            System.out.println("✅ Aeropuertos cargados: " + mapaAeropuertos.size());
-            System.out.println("✅ Vuelos cargados: " + vuelos.size());
-            System.out.println("✅ Envíos cargados: " + envios.size());
+            System.out.println("- Aeropuertos cargados: " + mapaAeropuertos.size());
+            System.out.println("- Vuelos cargados: " + vuelos.size());
+            System.out.println("- Envíos cargados: " + envios.size());
 
             if (envios.isEmpty() || vuelos.isEmpty()) {
-                System.out.println("⚠️ No hay suficientes datos para planificar.");
+                System.out.println("No hay suficientes datos para planificar.");
                 return;
             }
 
@@ -108,7 +107,7 @@ public class Main {
             System.out.println("\nResumen: Se encontraron rutas para " + enviosExitosos + " de " + envios.size() + " envíos.");
 
         } catch (Exception e) {
-            System.err.println("❌ Error durante la ejecución: " + e.getMessage());
+            System.err.println("Error durante la ejecución: " + e.getMessage());
             e.printStackTrace();
         }
     }

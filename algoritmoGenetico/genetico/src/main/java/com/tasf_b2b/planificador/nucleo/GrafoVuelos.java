@@ -27,9 +27,6 @@ public class GrafoVuelos {
         for (int i = 0; i < maxEscalas; i++) {
             List<Vuelo> posibles = obtenerVuelosDesde(actual);
             
-            // ¡LA SOLUCIÓN! 
-            // Congelamos el tiempo calculado en una variable local y "final" 
-            // para que el lambda la pueda usar sin lanzar error de compilación.
             final int tiempoMinimoSalida = tiempoActual + 60;
             
             // Filtramos vuelos que salen después de que llegamos (dejando margen de 1h para trasbordo)

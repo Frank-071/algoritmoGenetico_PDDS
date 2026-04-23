@@ -2,7 +2,7 @@ package com.tasf_b2b.planificador.dominio;
 
 public class Envio {
     public final String idPedido;
-    public final String origen;       // Lo sacas del nombre del archivo TXT
+    public final String origen;       // Nombre del archivo TXT
     public final String destino;      // dest (ej. EBCI)
     public final String fecha;        // aaaammdd
     public final int horaIngresoMin;  // Convertimos hh y mm a minutos totales
@@ -21,7 +21,7 @@ public class Envio {
         this.destino = destino;
         this.fecha = fecha;
         
-        // ¡Aquí está la magia! Convertimos la hora y minuto a un solo número
+        // Convertimos la hora y minuto a un solo número
         // 01:38 = (1 * 60) + 38 = 98 minutos desde la medianoche.
         this.horaIngresoMin = (hh * 60) + mm; 
         

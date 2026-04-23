@@ -13,8 +13,7 @@ public class UtilArchivos {
         return d.isEmpty() ? 0 : Integer.parseInt(d);
     }
 
-    // 🔥 EL MÉTODO MÁGICO 🔥
-    // Prueba diferentes codificaciones automáticamente para saltar el error del profesor (UTF-16)
+    // Prueba diferentes codificaciones automáticamente (UTF-16)
     private static List<String> leerLineasSeguro(Path p) throws IOException {
         try {
             return Files.readAllLines(p, StandardCharsets.UTF_8);
@@ -32,7 +31,6 @@ public class UtilArchivos {
         for (String linea : leerLineasSeguro(p)) {
             String t = linea.trim();
             
-            // Limpiamos la basura invisible que pueda traer el texto
             if (t.startsWith("\uFEFF")) t = t.substring(1); 
 
             if (!t.matches("^[0-9]{1,2}\\s+.*")) continue;
@@ -118,7 +116,6 @@ public class UtilArchivos {
                 int cantidad = parsearEntero(f[5]);
                 String idCliente = f[6].trim();
                 
-                // NUEVA LÍNEA PARA PRUEBA DE DEBUG:
                 //if (envios.size() >= 50) break;
 
                 envios.add(new Envio(idPedido, origen, destino, fecha, hh, mm, cantidad, idCliente));
