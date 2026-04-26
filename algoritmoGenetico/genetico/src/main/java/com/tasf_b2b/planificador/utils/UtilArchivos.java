@@ -3,35 +3,14 @@ package com.tasf_b2b.planificador.utils;
 import com.tasf_b2b.planificador.dominio.*;
 import java.io.*;
 import java.nio.file.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-public class UtilArchivos {
+public class UtilArchivos extends BaseParser {
 
-    private static int parsearEntero(String s) {
-        String d = (s == null ? "" : s).replaceAll("[^0-9]", "");
-        return d.isEmpty() ? 0 : Integer.parseInt(d);
-    }
-
-    // Prueba diferentes codificaciones automáticamente (UTF-16)
-    private static List<String> leerLineasSeguro(Path p) throws IOException {
-        try {
-            return Files.readAllLines(p, StandardCharsets.UTF_8);
-        } catch (Exception e1) {
-            try {
-                return Files.readAllLines(p, StandardCharsets.UTF_16);
-            } catch (Exception e2) {
-                return Files.readAllLines(p, StandardCharsets.ISO_8859_1);
-            }
-        }
-    }
-
-    public static Map<String, Aeropuerto> cargarAeropuertos(Path p) throws IOException {
+    public Map<String, Aeropuerto> cargarAeropuertos(Path p) throws IOException {
         Map<String, Aeropuerto> mapa = new HashMap<>();
-        for (String linea : leerLineasSeguro(p)) {
+        for (String linea : leerLineas(p)) {
             String t = linea.trim();
-            
-            if (t.startsWith("\uFEFF")) t = t.substring(1); 
 
             if (!t.matches("^[0-9]{1,2}\\s+.*")) continue;
             
@@ -59,10 +38,10 @@ public class UtilArchivos {
         return mapa;
     }
 
-    public static List<Vuelo> cargarVuelos(Path p, Set<String> iatasValidas) throws IOException {
+    public List<Vuelo> cargarVuelos(Path p, Set<String> iatasValidas) throws IOException {
         List<Vuelo> vuelos = new ArrayList<>();
         int id = 0;
-        for (String linea : leerLineasSeguro(p)) {
+        for (String linea : leerLineas(p)) {
             String t = linea.trim();
             if (t.isEmpty() || t.startsWith("#")) continue;
 
@@ -90,14 +69,14 @@ public class UtilArchivos {
         return vuelos;
     }
 
-    public static List<Envio> cargarEnvios(Path p, Set<String> iatasValidas) throws IOException {
+    public List<Envio> cargarEnvios(Path p, Set<String> iatasValidas) throws IOException {
         List<Envio> envios = new ArrayList<>();
         if (p == null || !Files.exists(p)) return envios;
 
         String nombreArchivo = p.getFileName().toString();
         String origen = nombreArchivo.contains("_") ? nombreArchivo.split("_")[2] : "EBCI"; 
 
-        for (String linea : leerLineasSeguro(p)) {
+        for (String linea : leerLineas(p)) {
             String t = linea.trim();
             if (t.isEmpty() || t.startsWith("#")) continue;
             

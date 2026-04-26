@@ -43,11 +43,12 @@ public class Main {
         try {
             // 2. Cargar los datos usando Utils
             System.out.println("Cargando datos...");
-            Map<String, Aeropuerto> mapaAeropuertos = UtilArchivos.cargarAeropuertos(rutaAeropuertos);
+            UtilArchivos uArch = new UtilArchivos();
+            Map<String, Aeropuerto> mapaAeropuertos = uArch.cargarAeropuertos(rutaAeropuertos);
             Set<String> iatasValidas = mapaAeropuertos.keySet();
 
-            List<Vuelo> vuelos = UtilArchivos.cargarVuelos(rutaVuelos, iatasValidas);
-            List<Envio> envios = UtilArchivos.cargarEnvios(rutaEnvios, iatasValidas);
+            List<Vuelo> vuelos = uArch.cargarVuelos(rutaVuelos, iatasValidas);
+            List<Envio> envios = uArch.cargarEnvios(rutaEnvios, iatasValidas);
 
             System.out.println("- Aeropuertos cargados: " + mapaAeropuertos.size());
             System.out.println("- Vuelos cargados: " + vuelos.size());
