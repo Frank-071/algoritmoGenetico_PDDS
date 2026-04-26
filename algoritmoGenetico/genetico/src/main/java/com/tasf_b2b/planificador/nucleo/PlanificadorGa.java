@@ -9,10 +9,10 @@ public class PlanificadorGa {
     private GrafoVuelos grafo;
     private ParametrosGa params;
     private List<Envio> envios;
-    private Random rnd = new Random();
+    private Random rnd = new Random(42);
 
-    public PlanificadorGa(List<Vuelo> vuelos, List<Envio> envios, ParametrosGa params) {
-        this.grafo = new GrafoVuelos(vuelos);
+    public PlanificadorGa(GrafoVuelos grafo, List<Envio> envios, ParametrosGa params) {
+        this.grafo = grafo;
         this.envios = envios;
         this.params = params;
     }

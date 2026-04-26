@@ -19,4 +19,9 @@ public class Vuelo {
         int durMin = (llegadaMin >= salidaMin) ? (llegadaMin - salidaMin) : (llegadaMin + 24*60 - salidaMin);
         this.horasDuracion = Math.max(0.01, durMin / 60.0);
     }
+
+    @Override
+    public String toString() {
+        return String.format("Vuelo[%d] %s→%s (%.1fh)", id, origen, destino, horasDuracion);
+    }
 }

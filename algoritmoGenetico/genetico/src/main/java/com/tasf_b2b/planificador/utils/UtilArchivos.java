@@ -44,7 +44,7 @@ public class UtilArchivos extends BaseParser {
         return vuelos;
     }
 
-    public List<Envio> cargarEnvios(Path p, Set<String> iatasValidas) throws IOException {
+    public List<Envio> cargarEnvios(Path p, Set<String> iatasValidas, Map<String, Aeropuerto> aeropuertos) throws IOException {
         List<Envio> envios = new ArrayList<>();
         if (p == null || !Files.exists(p)) return envios;
 
@@ -70,9 +70,9 @@ public class UtilArchivos extends BaseParser {
                 int cantidad = parsearEntero(f[5]);
                 String idCliente = f[6].trim();
                 
-                //if (envios.size() >= 50) break;
+                Aeropuerto aeroOrigen = aeropuertos.get(origen);
 
-                envios.add(new Envio(idPedido, origen, destino, fecha, hh, mm, cantidad, idCliente));
+                envios.add(new Envio(idPedido, origen, destino, fecha, hh, mm, cantidad, idCliente, aeroOrigen));
             } catch (Exception e) {}
         }
         return envios;

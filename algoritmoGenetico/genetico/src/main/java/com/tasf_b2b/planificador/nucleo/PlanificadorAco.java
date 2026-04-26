@@ -20,8 +20,8 @@ public class PlanificadorAco {
     private final Random rnd = new Random();
     private final Map<Integer, Double> feromonaPorVuelo = new HashMap<>();
 
-    public PlanificadorAco(List<Vuelo> vuelos, List<Envio> envios, ParametrosAco params) {
-        this.grafo = new GrafoVuelos(vuelos);
+    public PlanificadorAco(GrafoVuelos grafo, List<Vuelo> vuelos, List<Envio> envios, ParametrosAco params) {
+        this.grafo = grafo;
         this.vuelos = vuelos;
         this.envios = envios;
         this.params = params;

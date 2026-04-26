@@ -49,7 +49,7 @@ public class Main {
             Set<String> iatasValidas = mapaAeropuertos.keySet();
 
             List<Vuelo> vuelos = uArch.cargarVuelos(rutaVuelos, iatasValidas);
-            List<Envio> envios = uArch.cargarEnvios(rutaEnvios, iatasValidas);
+            List<Envio> envios = uArch.cargarEnvios(rutaEnvios, iatasValidas, mapaAeropuertos);
 
             System.out.println("- Aeropuertos cargados: " + mapaAeropuertos.size());
             System.out.println("- Vuelos cargados: " + vuelos.size());
@@ -60,6 +60,8 @@ public class Main {
                 return;
             }
 
+            GrafoVuelos grafo = new GrafoVuelos(vuelos, mapaAeropuertos);
+
             Individuo mejorSolucion;
             if ("aco".equals(algoritmo)) {
                 ParametrosAco parametrosAco = new ParametrosAco();
@@ -67,7 +69,7 @@ public class Main {
                 parametrosAco.maxIteraciones = 100;
 
                 System.out.println("\nIniciando optimizacion con Ant Colony Optimization...");
-                PlanificadorAco planificadorAco = new PlanificadorAco(vuelos, envios, parametrosAco);
+                PlanificadorAco planificadorAco = new PlanificadorAco(grafo, vuelos, envios, parametrosAco);
                 mejorSolucion = planificadorAco.ejecutar();
             } else {
                 // 3. Configurar los parámetros del Genético
@@ -78,7 +80,7 @@ public class Main {
 
                 // 4. Iniciar el motor evolutivo
                 System.out.println("\nIniciando evolución del Algoritmo Genético...");
-                PlanificadorGa planificador = new PlanificadorGa(vuelos, envios, parametros);
+                PlanificadorGa planificador = new PlanificadorGa(grafo, envios, parametros);
                 mejorSolucion = planificador.ejecutar();
             }
 
