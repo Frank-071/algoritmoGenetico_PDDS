@@ -7,35 +7,10 @@ import java.util.*;
 
 public class UtilArchivos extends BaseParser {
 
-    public Map<String, Aeropuerto> cargarAeropuertos(Path p) throws IOException {
-        Map<String, Aeropuerto> mapa = new HashMap<>();
-        for (String linea : leerLineas(p)) {
-            String t = linea.trim();
-
-            if (!t.matches("^[0-9]{1,2}\\s+.*")) continue;
-            
-            String[] f = t.split("\\s+");
-            if (f.length < 5) continue;
-
-            String oaci = f[1]; 
-
-            int idxLat = -1;
-            for (int i = 0; i < f.length; i++) {
-                if (f[i].startsWith("Lat")) {
-                    idxLat = i;
-                    break;
-                }
-            }
-
-            if (idxLat >= 2) {
-                try {
-                    int gmt = Integer.parseInt(f[idxLat - 2].replace("+", ""));
-                    int cap = parsearEntero(f[idxLat - 1]);
-                    mapa.put(oaci, new Aeropuerto(oaci, "Ciudad", "Pais", gmt, cap));
-                } catch (Exception e) {}
-            }
-        }
-        return mapa;
+    public Map<String, Aeropuerto> cargarAeropuertos(Path txt, Path csv) throws IOException {
+        ParserAeropuertos parserAero = new ParserAeropuertos();
+        parserAero.fromTXTtoCSV(txt, csv);
+        return parserAero.fromCSVToRuntimeObjects(csv);
     }
 
     public List<Vuelo> cargarVuelos(Path p, Set<String> iatasValidas) throws IOException {

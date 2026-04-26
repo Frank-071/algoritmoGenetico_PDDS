@@ -36,7 +36,8 @@ public class Main {
         System.out.println("Directorio de trabajo actual: " + directorioRaiz);
 
         // 2. Construir las rutas relativas de forma segura usando Paths.get()
-        Path rutaAeropuertos = resolverRutaData(directorioRaiz, "aeropuertos.txt");
+        Path rutaAeropuertos1 = resolverRutaData(directorioRaiz, "aeropuertos.txt");
+        Path rutaAeropuertos2 = resolverRutaData(directorioRaiz, "aeropuertos.csv");
         Path rutaVuelos = resolverRutaData(directorioRaiz, "planes_vuelo.txt");
         Path rutaEnvios = resolverRutaData(directorioRaiz, "_envios_EBCI_.txt");
 
@@ -44,7 +45,7 @@ public class Main {
             // 2. Cargar los datos usando Utils
             System.out.println("Cargando datos...");
             UtilArchivos uArch = new UtilArchivos();
-            Map<String, Aeropuerto> mapaAeropuertos = uArch.cargarAeropuertos(rutaAeropuertos);
+            Map<String, Aeropuerto> mapaAeropuertos = uArch.cargarAeropuertos(rutaAeropuertos1, rutaAeropuertos2);
             Set<String> iatasValidas = mapaAeropuertos.keySet();
 
             List<Vuelo> vuelos = uArch.cargarVuelos(rutaVuelos, iatasValidas);
