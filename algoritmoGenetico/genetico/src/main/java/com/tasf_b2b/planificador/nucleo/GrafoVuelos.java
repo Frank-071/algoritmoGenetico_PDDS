@@ -15,14 +15,24 @@ public class GrafoVuelos {
 
     private final Map<String, List<Vuelo>>   adyacencia;
     private final Map<String, Aeropuerto>    aeropuertos;
+    private final List<Vuelo>                vuelos;
     private final Random                     rnd = new Random();
 
     public GrafoVuelos(List<Vuelo> vuelos, Map<String, Aeropuerto> aeropuertos) {
+        this.vuelos = vuelos;
         this.aeropuertos = aeropuertos;
         this.adyacencia  = new HashMap<>();
         for (Vuelo v : vuelos) {
             adyacencia.computeIfAbsent(v.origen, k -> new ArrayList<>()).add(v);
         }
+    }
+
+    public Map<String, Aeropuerto> obtenerAeropuertos() {
+        return Collections.unmodifiableMap(aeropuertos);
+    }
+
+    public List<Vuelo> obtenerVuelos() {
+        return vuelos;
     }
 
     public List<Vuelo> obtenerVuelosDesde(String codigoOaci) {
@@ -47,14 +57,19 @@ public class GrafoVuelos {
             final int    tiempoMinimoSalida = tiempoActual + 10;
             final String actualFinal        = actual;
 
-            List<Vuelo> validos = obtenerVuelosDesde(actual).stream()
-                .filter(v -> v.salidaMin >= tiempoMinimoSalida)
-                .filter(v -> !puedeFiltrear || esAcercamiento(actualFinal, v.destino, destino))
-                .toList();
+            List<Vuelo> vuelosDesde = obtenerVuelosDesde(actual);
+            Vuelo elegido = null;
+            int validos = 0;
+            for (Vuelo v : vuelosDesde) {
+                if (v.salidaMin < tiempoMinimoSalida) continue;
+                if (puedeFiltrear && !esAcercamiento(actualFinal, v.destino, destino)) continue;
+                validos++;
+                if (rnd.nextInt(validos) == 0) {
+                    elegido = v;
+                }
+            }
 
-            if (validos.isEmpty()) break;
-
-            Vuelo elegido = validos.get(rnd.nextInt(validos.size()));
+            if (elegido == null) break;
             ruta.add(elegido);
 
             actual       = elegido.destino;

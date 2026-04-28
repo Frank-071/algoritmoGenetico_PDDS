@@ -1,10 +1,11 @@
 package com.tasf_b2b.planificador.nucleo;
 
+import com.tasf_b2b.planificador.dominio.Aeropuerto;
 import com.tasf_b2b.planificador.dominio.Envio;
 import com.tasf_b2b.planificador.dominio.Vuelo;
-import com.tasf_b2b.planificador.utils.UtilArchivos;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -19,12 +20,44 @@ public class PlanificadorAco {
     private final ParametrosAco params;
     private final Random rnd = new Random();
     private final Map<Integer, Double> feromonaPorVuelo = new HashMap<>();
+    private final int[] cargaVuelos;
+    private final int[] cargaVuelosStamp;
+    private final int[] ocupacionAlmacenes;
+    private final int[] ocupacionAlmacenesStamp;
+    private final int[] vueloDestinoIndex;
+    private final int[] capacidadAlmacen;
+    private int cargaStamp = 1;
+    private int ocupacionStamp = 1;
 
     public PlanificadorAco(GrafoVuelos grafo, List<Vuelo> vuelos, List<Envio> envios, ParametrosAco params) {
         this.grafo = grafo;
         this.vuelos = vuelos;
         this.envios = envios;
         this.params = params;
+
+        Map<String, Integer> aeropuertoIndex = new HashMap<>();
+        int idx = 0;
+        for (String codigo : grafo.obtenerAeropuertos().keySet()) {
+            aeropuertoIndex.put(codigo, idx++);
+        }
+
+        this.capacidadAlmacen = new int[aeropuertoIndex.size()];
+        for (Map.Entry<String, Integer> entry : aeropuertoIndex.entrySet()) {
+            Aeropuerto a = grafo.obtenerAeropuertos().get(entry.getKey());
+            capacidadAlmacen[entry.getValue()] = (a != null) ? a.capacidad : 500;
+        }
+
+        this.vueloDestinoIndex = new int[vuelos.size()];
+        for (int i = 0; i < vuelos.size(); i++) {
+            Vuelo v = vuelos.get(i);
+            Integer aIdx = aeropuertoIndex.get(v.destino);
+            vueloDestinoIndex[i] = (aIdx == null) ? -1 : aIdx;
+        }
+
+        this.cargaVuelos = new int[vuelos.size()];
+        this.cargaVuelosStamp = new int[vuelos.size()];
+        this.ocupacionAlmacenes = new int[aeropuertoIndex.size()];
+        this.ocupacionAlmacenesStamp = new int[aeropuertoIndex.size()];
 
         for (Vuelo v : vuelos) {
             feromonaPorVuelo.put(v.id, 1.0);
@@ -33,12 +66,20 @@ public class PlanificadorAco {
 
     public Individuo ejecutar() {
         Individuo mejorGlobal = null;
+        long inicio = System.currentTimeMillis();
+        long deadline = params.maxTiempoMs > 0 ? (inicio + params.maxTiempoMs) : Long.MAX_VALUE;
 
         for (int iter = 0; iter < params.maxIteraciones; iter++) {
+            if (System.currentTimeMillis() >= deadline) {
+                break;
+            }
             List<Individuo> colonia = new ArrayList<>();
             Individuo mejorIteracion = null;
 
             for (int i = 0; i < params.numeroHormigas; i++) {
+                if (System.currentTimeMillis() >= deadline) {
+                    break;
+                }
                 Individuo hormiga = construirSolucion();
                 calcularFitness(hormiga);
                 colonia.add(hormiga);
@@ -53,21 +94,21 @@ public class PlanificadorAco {
             }
 
             actualizarFeromonas(mejorIteracion, mejorGlobal);
-            System.out.println("Iteracion ACO " + iter + " - Mejor Fitness: " + mejorGlobal.fitness);
+            if (params.logIteraciones && (iter % params.logCada == 0 || iter == params.maxIteraciones - 1)) {
+                System.out.println("Iteracion ACO " + iter + " - Mejor Fitness: " + mejorGlobal.fitness);
+            }
         }
 
         return mejorGlobal;
     }
 
     private Individuo construirSolucion() {
-        Individuo ind = new Individuo();
+        Individuo ind = new Individuo(envios.size());
 
-        for (Envio e : envios) {
+        for (int i = 0; i < envios.size(); i++) {
+            Envio e = envios.get(i);
             List<Vuelo> rutaVuelos = construirRutaParaEnvio(e);
-            String contOrigen = UtilArchivos.obtenerContinente(e.origen);
-            String contDestino = UtilArchivos.obtenerContinente(e.destino);
-            int sla = contOrigen.equals(contDestino) ? 24 : 48;
-            ind.asignaciones.put(e, new Ruta(rutaVuelos, e.horaIngresoMin, sla));
+            ind.asignaciones[i] = new Ruta(rutaVuelos, e.horaIngresoMin, e.slaHoras);
         }
 
         return ind;
@@ -82,10 +123,12 @@ public class PlanificadorAco {
 
         for (int escala = 0; escala < params.maxEscalas; escala++) {
             final int tiempoMinimoSalida = tiempoActual + 60;
-            List<Vuelo> posibles = grafo.obtenerVuelosDesde(actual).stream()
-                .filter(v -> v.salidaMin >= tiempoMinimoSalida)
-                .filter(v -> !visitados.contains(v.destino))
-                .toList();
+            List<Vuelo> posibles = new ArrayList<>();
+            for (Vuelo v : grafo.obtenerVuelosDesde(actual)) {
+                if (v.salidaMin < tiempoMinimoSalida) continue;
+                if (visitados.contains(v.destino)) continue;
+                posibles.add(v);
+            }
 
             if (posibles.isEmpty()) {
                 return null;
@@ -164,9 +207,9 @@ public class PlanificadorAco {
     }
 
     private void depositarFeromona(Individuo ind, double deltaBase) {
-        for (Map.Entry<Envio, Ruta> entrada : ind.asignaciones.entrySet()) {
-            Envio e = entrada.getKey();
-            Ruta ruta = entrada.getValue();
+        for (int i = 0; i < envios.size(); i++) {
+            Envio e = envios.get(i);
+            Ruta ruta = ind.asignaciones[i];
 
             if (ruta == null || ruta.vuelos == null || ruta.vuelos.isEmpty()) {
                 continue;
@@ -182,14 +225,16 @@ public class PlanificadorAco {
 
     private void calcularFitness(Individuo ind) {
         double fitnessTotal = 0;
-        Map<Integer, Integer> cargaVuelos = new HashMap<>();
-        Map<String, Integer> ocupacionAlmacenes = new HashMap<>();
+        cargaStamp = nextStamp(cargaVuelosStamp, cargaStamp);
+        ocupacionStamp = nextStamp(ocupacionAlmacenesStamp, ocupacionStamp);
+        int cargaStampLocal = cargaStamp++;
+        int ocupacionStampLocal = ocupacionStamp++;
 
-        for (Map.Entry<Envio, Ruta> entrada : ind.asignaciones.entrySet()) {
-            Envio e = entrada.getKey();
-            Ruta r = entrada.getValue();
+        for (int i = 0; i < envios.size(); i++) {
+            Envio e = envios.get(i);
+            Ruta r = ind.asignaciones[i];
 
-            if (r.vuelos == null || r.vuelos.isEmpty()) {
+            if (r == null || r.vuelos == null || r.vuelos.isEmpty()) {
                 fitnessTotal += 100000;
                 continue;
             }
@@ -199,21 +244,48 @@ public class PlanificadorAco {
             }
 
             for (Vuelo v : r.vuelos) {
-                int cargaActualVuelo = cargaVuelos.getOrDefault(v.id, 0);
-                if (cargaActualVuelo + e.cantidad > v.capacidad) {
+                int cargaActualVuelo = getStampedValue(cargaVuelos, cargaVuelosStamp, v.id, cargaStampLocal);
+                int nuevaCargaVuelo = cargaActualVuelo + e.cantidad;
+                if (nuevaCargaVuelo > v.capacidad) {
                     fitnessTotal += 50000;
                 }
-                cargaVuelos.put(v.id, cargaActualVuelo + e.cantidad);
+                setStampedValue(cargaVuelos, cargaVuelosStamp, v.id, cargaStampLocal, nuevaCargaVuelo);
 
-                int ocupacionActualAlmacen = ocupacionAlmacenes.getOrDefault(v.destino, 0);
-                int nuevaOcupacion = ocupacionActualAlmacen + e.cantidad;
-                if (nuevaOcupacion > 500) {
-                    fitnessTotal += 50000;
+                int destinoIndex = vueloDestinoIndex[v.id];
+                if (destinoIndex >= 0) {
+                    int ocupacionActualAlmacen = getStampedValue(ocupacionAlmacenes, ocupacionAlmacenesStamp, destinoIndex, ocupacionStampLocal);
+                    int nuevaOcupacion = ocupacionActualAlmacen + e.cantidad;
+                    if (nuevaOcupacion > capacidadAlmacen[destinoIndex]) {
+                        fitnessTotal += 50000;
+                    }
+                    setStampedValue(ocupacionAlmacenes, ocupacionAlmacenesStamp, destinoIndex, ocupacionStampLocal, nuevaOcupacion);
                 }
-                ocupacionAlmacenes.put(v.destino, nuevaOcupacion);
             }
         }
 
         ind.fitness = fitnessTotal;
+    }
+
+    private int nextStamp(int[] stampArray, int currentStamp) {
+        if (currentStamp == Integer.MAX_VALUE) {
+            Arrays.fill(stampArray, 0);
+            return 1;
+        }
+        return currentStamp;
+    }
+
+    private int getStampedValue(int[] values, int[] stamps, int index, int stamp) {
+        if (stamps[index] != stamp) {
+            stamps[index] = stamp;
+            values[index] = 0;
+        }
+        return values[index];
+    }
+
+    private void setStampedValue(int[] values, int[] stamps, int index, int stamp, int value) {
+        if (stamps[index] != stamp) {
+            stamps[index] = stamp;
+        }
+        values[index] = value;
     }
 }

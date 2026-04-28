@@ -1,26 +1,23 @@
 package com.tasf_b2b.planificador.nucleo;
 
-import com.tasf_b2b.planificador.dominio.Envio;
-import java.util.HashMap;
-import java.util.Map;
 
 public class Individuo implements Comparable<Individuo> {
     
-    // El "ADN" del individuo: Un mapa que dice "El Envío X tomará la Ruta Y"
-    public Map<Envio, Ruta> asignaciones;
+    // El "ADN" del individuo: una ruta por índice de envío
+    public Ruta[] asignaciones;
     
     // El puntaje de esta solución (Se calcula evaluando tiempos y SLA)
     public double fitness;
 
-    public Individuo() {
-        this.asignaciones = new HashMap<>();
+    public Individuo(int totalEnvios) {
+        this.asignaciones = new Ruta[totalEnvios];
         this.fitness = Double.MAX_VALUE; // Inicia con el peor fitness posible
     }
 
     // Método para copiar un individuo (necesario cuando los cruzas y generas hijos)
     public Individuo clonar() {
-        Individuo hijo = new Individuo();
-        hijo.asignaciones.putAll(this.asignaciones);
+        Individuo hijo = new Individuo(this.asignaciones.length);
+        System.arraycopy(this.asignaciones, 0, hijo.asignaciones, 0, this.asignaciones.length);
         hijo.fitness = this.fitness;
         return hijo;
     }

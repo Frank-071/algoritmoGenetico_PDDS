@@ -18,4 +18,12 @@ public class ParametrosGa {
     
     // Penalidad por romper el SLA (entregar tarde) o exceder capacidad
     public double penalidadSLA = 1000.0; 
+
+    // Control de logging por generación
+    public boolean logGeneraciones = true;
+    public int logCada = 10;
+
+    // Early stop si no mejora en N generaciones (0 = desactivado)
+    public int maxSinMejora = 30;
+    public double toleranciaMejora = 0.0;
 }

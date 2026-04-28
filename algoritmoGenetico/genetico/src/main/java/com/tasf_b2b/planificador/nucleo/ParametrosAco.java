@@ -24,4 +24,11 @@ public class ParametrosAco {
 
     // Penalidad por romper SLA o capacidades
     public double penalidadSLA = 1000.0;
+
+    // Control de logging por iteración
+    public boolean logIteraciones = true;
+    public int logCada = 10;
+
+    // Tiempo maximo de ejecucion en milisegundos (0 = sin limite)
+    public long maxTiempoMs = 0;
 }

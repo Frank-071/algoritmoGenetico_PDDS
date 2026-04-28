@@ -69,31 +69,29 @@ public class ParserAeropuertos extends BaseParser {
             "gmt", "capacidad", "latitud", "longitud", "continente"
         });
 
-        String continenteActual = "";
+        final String[] continenteActual = {""};
 
-        for (String linea : leerLineas(p)) {
+        forEachLinea(p, linea -> {
             // Limpiar BOM y espacios
             String limpia = linea.replace("\uFEFF", "").strip();
             String lower = limpia.toLowerCase();
 
             // Detectar continente
             if (lower.contains("america del sur")) {
-                continenteActual = "America del Sur";
-                continue;
+                continenteActual[0] = "America del Sur";
+                return true;
             } else if (lower.startsWith("europa")) {
-                continenteActual = "Europa";
-                continue;
+                continenteActual[0] = "Europa";
+                return true;
             } else if (lower.startsWith("asia")) {
-                continenteActual = "Asia";
-                continue;
+                continenteActual[0] = "Asia";
+                return true;
             }
 
             // Intentar parsear línea de aeropuerto
             Matcher m = PATRON_AEROPUERTO.matcher(limpia);
             if (!m.matches()) {
-                //System.out.println("No se pudo procesar la linea porque no cumple el Regex");
-                //System.out.println(linea);
-                continue;
+                return true;
             }
 
             String oaci = m.group(1).strip();
@@ -110,14 +108,15 @@ public class ParserAeropuertos extends BaseParser {
 
             if (latDecimal == null || lonDecimal == null) {
                 System.err.println("No se pudo parsear coordenadas de: " + oaci);
-                continue;
+                return true;
             }
 
             filas.add(new String[] {
                     oaci, nombre, pais, codCorto,
-                    gmt, capacidad, latDecimal, lonDecimal, continenteActual
+                    gmt, capacidad, latDecimal, lonDecimal, continenteActual[0]
             });
-        }
+            return true;
+        });
         return filas;
     }
 
