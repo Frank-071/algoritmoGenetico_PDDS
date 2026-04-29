@@ -70,6 +70,15 @@ public class Main {
 
             List<Vuelo> vuelos = uArch.cargarVuelos(rutaVuelos, iatasValidas);
             List<Envio> envios = uArch.cargarEnvios(rutaEnvios, rutaEnviosPreliminares, iatasValidas, mapaAeropuertos, modoEnvios);
+            if (args.length > 2) {
+                try {
+                    int limite = Integer.parseInt(args[2].trim());
+                    if (limite > 0 && limite < envios.size()) {
+                        envios = envios.subList(0, limite);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            
             long finCarga = System.currentTimeMillis();
 
             System.out.println("- Aeropuertos cargados: " + mapaAeropuertos.size());
