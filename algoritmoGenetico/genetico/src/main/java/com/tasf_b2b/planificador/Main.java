@@ -144,7 +144,7 @@ public class Main {
 
                 // 4. Iniciar el motor evolutivo
                 System.out.println("\nIniciando evolución del Algoritmo Genético...");
-                PlanificadorGa planificador = new PlanificadorGa(grafo, envios, parametros, 42);
+                PlanificadorGa planificador = new PlanificadorGa(grafo, envios, parametros);
                 mejorSolucion = planificador.ejecutar();
             }
             long finEjecucion = System.currentTimeMillis();
