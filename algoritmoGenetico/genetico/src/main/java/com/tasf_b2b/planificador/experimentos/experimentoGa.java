@@ -54,7 +54,7 @@ public class experimentoGa {
         Path rutaAeropuertosTxt = resolverRuta(raiz, "aeropuertos.txt");
         Path rutaAeropuertosCsv = resolverRuta(raiz, "aeropuertos.csv");
         Path rutaVuelos         = resolverRuta(raiz, "planes_vuelo.txt");
-        Path rutaEnvios         = resolverRuta(raiz, "_envios_EBCI_500.txt");
+        Path rutaEnvios         = resolverRuta(raiz, "_envios_EBCI_5000.txt");
         Path rutaSalida = Paths.get(raiz, "genetico", "data", "resultados_ga.csv");
 
         try {

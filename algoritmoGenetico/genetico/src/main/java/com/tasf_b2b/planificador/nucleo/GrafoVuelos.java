@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 
 
@@ -35,33 +36,48 @@ public class GrafoVuelos {
      *
      * @return lista de vuelos que forman la ruta, o null si no encontró ninguna
      */
+    // En GrafoVuelos.java reemplaza tu método actual por este:
+
     public List<Vuelo> buscarRutaAleatoria(String origen, String destino, int horaSalidaMin, int maxEscalas) {
-        // Si no tenemos coordenadas de alguno de los dos, no podemos filtrar por acercamiento
-        boolean puedeFiltrear = aeropuertos.containsKey(origen) && aeropuertos.containsKey(destino);
+        for (int intento = 0; intento < 100; intento++) {
+            List<Vuelo> ruta = new ArrayList<>();
+            String actual = origen;
+            int tiempoActual = horaSalidaMin;
+            boolean llego = false;
 
-        List<Vuelo> ruta         = new ArrayList<>();
-        String      actual       = origen;
-        int         tiempoActual = horaSalidaMin;
+            for (int i = 0; i < maxEscalas; i++) {
+                int tiempoMinimoSalida = tiempoActual + 15;
+                
+                // --- ESTO ES LO QUE SOLUCIONA EL ERROR ---
+                final String refActual = actual; 
+                // -----------------------------------------
 
-        for (int i = 0; i < maxEscalas; i++) {
-            final int    tiempoMinimoSalida = tiempoActual + 10;
-            final String actualFinal        = actual;
+                List<Vuelo> validos = obtenerVuelosDesde(actual).stream()
+                    .filter(v -> v.salidaMin >= tiempoMinimoSalida)
+                    // USAMOS refActual AQUÍ:
+                    .filter(v -> esAcercamiento(refActual, v.destino, destino)) 
+                    .toList();
 
-            List<Vuelo> validos = obtenerVuelosDesde(actual).stream()
-                .filter(v -> v.salidaMin >= tiempoMinimoSalida)
-                .filter(v -> !puedeFiltrear || esAcercamiento(actualFinal, v.destino, destino))
-                .toList();
+                if (validos.isEmpty()) break;
 
-            if (validos.isEmpty()) break;
+                Optional<Vuelo> directo = validos.stream()
+                    .filter(v -> v.destino.equals(destino))
+                    .findFirst();
 
-            Vuelo elegido = validos.get(rnd.nextInt(validos.size()));
-            ruta.add(elegido);
+                Vuelo elegido;
+                if (directo.isPresent()) {
+                    elegido = directo.get();
+                    llego = true;
+                } else {
+                    elegido = validos.get(rnd.nextInt(validos.size()));
+                }
 
-            actual       = elegido.destino;
-            tiempoActual = elegido.llegadaMin;
+                ruta.add(elegido);
+                actual = elegido.destino; // Aquí actual cambia para la próxima escala
+                tiempoActual = elegido.llegadaMin;
 
-            // llegada a destino
-            if (actual.equals(destino)) return ruta;
+                if (llego) return ruta;
+            }
         }
         return null;
     }

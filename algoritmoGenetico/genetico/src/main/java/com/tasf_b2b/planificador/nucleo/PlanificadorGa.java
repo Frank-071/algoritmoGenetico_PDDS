@@ -124,7 +124,7 @@ public class PlanificadorGa {
     private void mutar(Individuo ind) {
         // Elegimos un envío al azar y le buscamos una ruta nueva
         Envio e = envios.get(rnd.nextInt(envios.size()));
-        List<Vuelo> nuevaRutaVuelos = grafo.buscarRutaAleatoria(e.origen, e.destino, e.horaIngresoMin, 3);
+        List<Vuelo> nuevaRutaVuelos = grafo.buscarRutaAleatoria(e.origen, e.destino, e.horaIngresoMin, 5);
         if (nuevaRutaVuelos != null) {
             // CAMBIO AQUÍ: Pasamos 'e' directamente
             String contOrigen = UtilArchivos.obtenerContinente(e.origen);
