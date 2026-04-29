@@ -81,6 +81,6 @@ public class GrafoVuelos {
         double distActual    = aActual.distanciaKm(aDestino);
         double distCandidato = aCandidato.distanciaKm(aDestino);
 
-        return distCandidato < distActual * 1.2;
+        return distCandidato < distActual * 1.5;
     }
 }

@@ -54,7 +54,7 @@ public class experimentoGa {
         Path rutaAeropuertosTxt = resolverRuta(raiz, "aeropuertos.txt");
         Path rutaAeropuertosCsv = resolverRuta(raiz, "aeropuertos.csv");
         Path rutaVuelos         = resolverRuta(raiz, "planes_vuelo.txt");
-        Path rutaEnvios         = resolverRuta(raiz, "_envios_EBCI_.txt");
+        Path rutaEnvios         = resolverRuta(raiz, "_envios_EBCI_500.txt");
         Path rutaSalida = Paths.get(raiz, "genetico", "data", "resultados_ga.csv");
 
         try {
@@ -74,17 +74,20 @@ public class experimentoGa {
             }
 
             // ── 3. Preparar CSV de salida ─────────────────────────────────────
-            try (PrintWriter csv = new PrintWriter(new FileWriter(rutaSalida.toFile()))) {
+                try (PrintWriter csv = new PrintWriter(new FileWriter(rutaSalida.toFile()))) {
 
-                // Encabezado
-                csv.println("Replica,Semilla,Funcion Objetivo,% Entregados con SLA,Violaciones SLA," +
-             "Violaciones Cap. Vuelo,Violaciones Cap. Almacen,Sin Ruta," +
-             "Tiempo Total (h),Hops Promedio,Tiempo Computo (s)");
+                    // Encabezado para el CSV (este se queda igual para Excel)
+                    csv.println("Replica,Semilla,Funcion Objetivo,% Entregados con SLA,Violaciones SLA," +
+                        "Violaciones Cap. Vuelo,Violaciones Cap. Almacen,Sin Ruta," +
+                        "Tiempo Total (h),Hops Promedio,Tiempo Computo (s)");
 
-                System.out.printf("%n%-6s %-8s %-14s %-8s %-8s %-8s %-8s %-8s %-10s %-10s %-12s%n",
-                        "Rep", "Semilla", "Fitness", "%SLA", "V.SLA", "V.Vuelo",
-                        "V.Alm", "SinRuta", "T_total_h", "Esc.Prom", "T.Comp(ms)");
-                System.out.println("─".repeat(100));
+                    // Encabezado de tabla para la Consola
+                    String separadorTabla = "+------+---------+----------------+---------+-------+---------+-------+---------+-----------+----------+------------+";
+                    System.out.println(separadorTabla);
+                    System.out.printf("| %-4s | %-7s | %-14s | %-7s | %-5s | %-7s | %-5s | %-7s | %-9s | %-8s | %-10s |%n",
+                            "Rep", "Semilla", "Fitness", "%SLA", "V.SLA", "V.Vuelo",
+                            "V.Alm", "SinRuta", "T_total_h", "Esc.Prom", "T.Comp(ms)");
+                    System.out.println(separadorTabla);
 
                 // ── 4. Bucle de réplicas ──────────────────────────────────────
                 for (int rep = 1; rep <= N_REPLICAS; rep++) {
@@ -114,15 +117,15 @@ public class experimentoGa {
                             r.violSla, r.violCapVuelo, r.violCapAlmacen,
                             r.sinRuta, r.tiempoTotalH, r.escalasProm, tiempoMs);
 
-                    // ── 7. Imprimir en consola ────────────────────────────────
-                    System.out.printf("%-6d %-8d %-14.2f %-8.2f %-8d %-8d %-8d %-8d %-10.2f %-10.2f %-12d%n",
+                    // ── 7. Imprimir en consola (Formato Tabla) ────────────────
+                    System.out.printf(Locale.US, "| %-4d | %-7d | %-14.2f | %-7.2f | %-5d | %-7d | %-5d | %-7d | %-9.2f | %-8.2f | %-10d |%n",
                             rep, rep,
                             mejor.fitness, r.pctSla,
                             r.violSla, r.violCapVuelo, r.violCapAlmacen,
                             r.sinRuta, r.tiempoTotalH, r.escalasProm, tiempoMs);
                 }
 
-                System.out.println("─".repeat(100));
+                System.out.println(separadorTabla);
                 System.out.println("Resultados exportados → " + rutaSalida.toAbsolutePath());
             }
 

@@ -66,7 +66,7 @@ public class PlanificadorGa {
 
             // 1. Penalización Letal por no encontrar ruta
             if (r.vuelos == null || r.vuelos.isEmpty()) {
-                fitnessTotal += 100000;
+                fitnessTotal += 1000000; // Penalización muy alta por no asignar ruta
                 continue;
             }
 
@@ -140,7 +140,7 @@ public class PlanificadorGa {
         for (int i = 0; i < params.tamanoPoblacion; i++) {
             Individuo ind = new Individuo();
             for (Envio e : envios) {
-                List<Vuelo> vRuta = grafo.buscarRutaAleatoria(e.origen, e.destino, e.horaIngresoMin, 3);
+                List<Vuelo> vRuta = grafo.buscarRutaAleatoria(e.origen, e.destino, e.horaIngresoMin, 4);
                 String contOrigen = UtilArchivos.obtenerContinente(e.origen);
                 String contDestino = UtilArchivos.obtenerContinente(e.destino);
                 int sla = contOrigen.equals(contDestino) ? 24 : 48;
