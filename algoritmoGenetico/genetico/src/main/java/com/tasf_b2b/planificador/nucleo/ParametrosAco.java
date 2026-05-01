@@ -2,10 +2,10 @@ package com.tasf_b2b.planificador.nucleo;
 
 public class ParametrosAco {
     // Cuantas hormigas (soluciones candidatas) se generan por iteracion
-    public int numeroHormigas = 15;
+    public int numeroHormigas = 25;
 
     // Cuantas iteraciones de aprendizaje de feromonas se ejecutan
-    public int maxIteraciones = 60;
+    public int maxIteraciones = 80;
 
     // Peso de la feromona en la probabilidad de escoger un vuelo
     public double alpha = 1.2;
@@ -28,9 +28,9 @@ public class ParametrosAco {
 
     // --- Pesos y Penalidades para el Fitness ---
     public double penalidadSLA = 15.0;
-    public double penalidadSinRuta = 500.0;
-    public double penalidadCapVuelo = 500.0;
-    public double penalidadCapAlmacen = 2000.0;
+    public double penalidadSinRuta = 10000.0;
+    public double penalidadCapVuelo = 10000.0;
+    public double penalidadCapAlmacen = 50000.0;
     public double pesoTiempo = 1.0; // Costo base por hora de viaje
 
     // Control de logging por iteración
