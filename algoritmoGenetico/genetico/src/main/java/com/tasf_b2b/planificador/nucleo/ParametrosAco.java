@@ -2,42 +2,36 @@ package com.tasf_b2b.planificador.nucleo;
 
 public class ParametrosAco {
     // Cuantas hormigas (soluciones candidatas) se generan por iteracion
-    public int numeroHormigas = 100;
+    public int numeroHormigas = 35;
 
     // Cuantas iteraciones de aprendizaje de feromonas se ejecutan
-    public int maxIteraciones = 300;
+    public int maxIteraciones = 100;
 
     // Peso de la feromona en la probabilidad de escoger un vuelo
-    public double alpha = 0.7;
+    public double alpha = 1.2;
 
     // Peso de la heuristica (tiempo estimado) en la seleccion de vuelos
-    public double beta = 2.5;
+    public double beta = 1.5;
 
     // Tasa de evaporacion de feromonas por iteracion
-    public double evaporacion = 0.25;
+    public double evaporacion = 0.10;
 
     // Intensidad base de deposito de feromonas
-    public double q = 1000.0;
+    public double q = 200.0;
 
     // Maximo de saltos (vuelos) permitidos por ruta
-    public int maxEscalas = 12;
+    public int maxEscalas = 3;
 
-    // Penalidad por romper SLA
-    public double penalidadSLA = 1000.0;
+    // --- Tiempos Mínimos (en minutos) ---
+    public int minEscalaMin = 60; // Tiempo mínimo en tierra durante una escala
+    public int minRecojoMin = 120; // Tiempo desde la llegada final hasta que se considera "recogido"
 
-    // Penalidad por no encontrar ruta
-    public double penalidadSinRuta = 1_000_000.0;
-
-    // Penalizaciones fijas por violacion de capacidad
-    public double penalidadCapVuelo = 50_000.0;
-    public double penalidadCapAlmacen = 50_000.0;
-
-    // Peso del tiempo total en el fitness (calidad base)
-    public double pesoTiempo = 1.0;
-
-    // Minimo de minutos entre vuelos (escala) y tiempo de recojo final
-    public int minEscalaMin = 10;
-    public int minRecojoMin = 10;
+    // --- Pesos y Penalidades para el Fitness ---
+    public double penalidadSLA = 15.0;
+    public double penalidadSinRuta = 500.0;
+    public double penalidadCapVuelo = 500.0;
+    public double penalidadCapAlmacen = 2000.0;
+    public double pesoTiempo = 1.0; // Costo base por hora de viaje
 
     // Control de logging por iteración
     public boolean logIteraciones = true;
