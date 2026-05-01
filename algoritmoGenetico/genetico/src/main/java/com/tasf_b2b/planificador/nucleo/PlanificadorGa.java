@@ -11,11 +11,11 @@ public class PlanificadorGa {
     private List<Envio> envios;
     private Random rnd = new Random(42);
 
-    public PlanificadorGa(GrafoVuelos grafo, List<Envio> envios, ParametrosGa params, long semilla) {
+    public PlanificadorGa(GrafoVuelos grafo, List<Envio> envios, ParametrosGa params) {
         this.grafo = grafo;
         this.envios = envios;
         this.params = params;
-        this.rnd    = new Random(semilla);
+        this.rnd    = new Random(42);
     }
 
     public Individuo ejecutar() {

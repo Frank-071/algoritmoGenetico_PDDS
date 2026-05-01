@@ -16,7 +16,7 @@ public class GrafoVuelos {
 
     private final Map<String, List<Vuelo>>   adyacencia;
     private final Map<String, Aeropuerto>    aeropuertos;
-    private final Random                     rnd = new Random();
+    private final Random                     rnd = new Random(42);
 
     public GrafoVuelos(List<Vuelo> vuelos, Map<String, Aeropuerto> aeropuertos) {
         this.aeropuertos = aeropuertos;
@@ -39,7 +39,7 @@ public class GrafoVuelos {
     // En GrafoVuelos.java reemplaza tu método actual por este:
 
     public List<Vuelo> buscarRutaAleatoria(String origen, String destino, int horaSalidaMin, int maxEscalas) {
-        for (int intento = 0; intento < 100; intento++) {
+        for (int intento = 0; intento < 150; intento++) {
             List<Vuelo> ruta = new ArrayList<>();
             String actual = origen;
             int tiempoActual = horaSalidaMin;

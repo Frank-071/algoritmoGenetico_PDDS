@@ -101,7 +101,7 @@ public class experimentoGa {
                     params.tamanoTorneo     = TAMANO_TORNEO;
                     params.penalidadSLA     = PENALIDAD_SLA;
 
-                    PlanificadorGa planificador = new PlanificadorGa(grafo, envios, params, (long) rep);
+                    PlanificadorGa planificador = new PlanificadorGa(grafo, envios, params);
 
                     long t0 = System.currentTimeMillis();
                     Individuo mejor = planificador.ejecutar();
