@@ -2,10 +2,10 @@ package com.tasf_b2b.planificador.nucleo;
 
 public class ParametrosAco {
     // Cuantas hormigas (soluciones candidatas) se generan por iteracion
-    public int numeroHormigas = 35;
+    public int numeroHormigas = 15;
 
     // Cuantas iteraciones de aprendizaje de feromonas se ejecutan
-    public int maxIteraciones = 100;
+    public int maxIteraciones = 60;
 
     // Peso de la feromona en la probabilidad de escoger un vuelo
     public double alpha = 1.2;

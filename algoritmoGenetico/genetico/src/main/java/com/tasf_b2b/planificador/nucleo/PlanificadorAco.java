@@ -20,29 +20,36 @@ public class PlanificadorAco {
     private final ParametrosAco params;
     private final double[] feromonas;
     
-    // OPTIMIZACIÓN: Precalcular feromonas^alpha para evitar millones de Math.pow
     private final double[] feromonasAlpha; 
     private final boolean betaEs1;
     private final boolean betaEs2;
 
     private final int[] vueloDestinoIndex;
     private final int[] capacidadAlmacen;
+    private final int[] capacidadMaximaVuelo; // NUEVO: Para inicializar las capacidades rápidamente
     private final int numAeropuertos;
 
     private final Map<String, Integer> aeropuertoIndex;
-    private final String[] indexAeropuertoStr; // OPTIMIZACIÓN: Mapeo inverso rápido (int -> String)
+    private final String[] indexAeropuertoStr; 
     private final Map<String, Integer> capacidadPorAeropuerto;
+
+    private final Vuelo[][] vuelosDesdeAeropuerto;
+    private final int[] duracionVueloMin;
 
     private final ThreadLocal<boolean[]>    bufferVisitados;
     private final ThreadLocal<int[]>        bufferCargaVuelos;
     private final ThreadLocal<int[]>        bufferOcupacion;
     private final ThreadLocal<List<Integer>> bufferIndicesUsados;
     private final ThreadLocal<List<Vuelo>>  bufferPosibles;
+    private final ThreadLocal<List<Vuelo>>  bufferPosiblesSaturados; // NUEVO: Vuelos de emergencia
     private final ThreadLocal<double[]>     bufferPesos;
     private final ThreadLocal<List<Integer>> bufferVuelosModificados;
     private final ThreadLocal<long[][]>     bufferAirportEvents;
     private final ThreadLocal<int[]>        bufferAirportEventCount;
     private final ThreadLocal<List<Integer>> bufferActiveAirports;
+    
+    private final ThreadLocal<int[]>        bufferCapacidadRestante; // NUEVO: Tracker dinámico
+    private final ThreadLocal<int[]>        bufferOrdenEnvios;       // NUEVO: Shuffle de prioridad
 
     public PlanificadorAco(GrafoVuelos grafo, List<Vuelo> vuelos, List<Envio> envios, ParametrosAco params) {
         this.grafo  = grafo;
@@ -50,7 +57,6 @@ public class PlanificadorAco {
         this.envios = envios;
         this.params = params;
 
-        // Banderas para salto rápido de Math.pow
         this.betaEs1 = Math.abs(params.beta - 1.0) < 0.001;
         this.betaEs2 = Math.abs(params.beta - 2.0) < 0.001;
 
@@ -62,7 +68,6 @@ public class PlanificadorAco {
         }
         this.numAeropuertos = aeropuertoIndex.size();
 
-        // Mapeo inverso
         this.indexAeropuertoStr = new String[numAeropuertos];
         for (Map.Entry<String, Integer> entry : aeropuertoIndex.entrySet()) {
             indexAeropuertoStr[entry.getValue()] = entry.getKey();
@@ -76,38 +81,79 @@ public class PlanificadorAco {
         }
 
         this.vueloDestinoIndex = new int[vuelos.size()];
+        this.capacidadMaximaVuelo = new int[vuelos.size()];
         for (int i = 0; i < vuelos.size(); i++) {
             Vuelo v    = vuelos.get(i);
             Integer aI = aeropuertoIndex.get(v.destino);
             vueloDestinoIndex[i] = (aI == null) ? -1 : aI;
+            capacidadMaximaVuelo[v.id] = v.capacidad; // Guardamos la capacidad máxima
+        }
+
+        this.duracionVueloMin = new int[vuelos.size()];
+        for (Vuelo v : vuelos) {
+            int dur = v.llegadaMin - v.salidaMin;
+            if (dur < 0) dur += 24 * 60;
+            duracionVueloMin[v.id] = dur;
+        }
+
+        this.vuelosDesdeAeropuerto = new Vuelo[numAeropuertos][];
+        for (int i = 0; i < numAeropuertos; i++) {
+            String codigo = indexAeropuertoStr[i];
+            List<Vuelo> desde = grafo.obtenerVuelosDesde(codigo);
+            if (desde == null) desde = new ArrayList<>();
+            vuelosDesdeAeropuerto[i] = desde.toArray(new Vuelo[0]);
         }
 
         this.feromonas = new double[vuelos.size()];
         this.feromonasAlpha = new double[vuelos.size()];
         Arrays.fill(feromonas, 1.0);
-        Arrays.fill(feromonasAlpha, 1.0); // 1.0 ^ alpha siempre es 1.0
+        Arrays.fill(feromonasAlpha, 1.0); 
 
         final int nVuelos      = vuelos.size();
         final int nAeropuertos = numAeropuertos;
         final int maxEscalas   = params.maxEscalas;
+        final int nEnvios      = envios.size();
 
         this.bufferVisitados    = ThreadLocal.withInitial(() -> new boolean[nAeropuertos]);
         this.bufferCargaVuelos  = ThreadLocal.withInitial(() -> new int[nVuelos]);
         this.bufferOcupacion    = ThreadLocal.withInitial(() -> new int[nAeropuertos]);
         this.bufferIndicesUsados = ThreadLocal.withInitial(() -> new ArrayList<>(maxEscalas + 1));
         this.bufferPosibles      = ThreadLocal.withInitial(ArrayList::new);
+        this.bufferPosiblesSaturados = ThreadLocal.withInitial(ArrayList::new); // Inicialización del nuevo buffer
         this.bufferPesos         = ThreadLocal.withInitial(() -> new double[nVuelos]);
         this.bufferVuelosModificados = ThreadLocal.withInitial(() -> new ArrayList<>(nVuelos));
 
         this.bufferAirportEvents     = ThreadLocal.withInitial(() -> new long[nAeropuertos][]);
         this.bufferAirportEventCount = ThreadLocal.withInitial(() -> new int[nAeropuertos]);
         this.bufferActiveAirports    = ThreadLocal.withInitial(() -> new ArrayList<>(nAeropuertos));
+        
+        // Inicialización de buffers de capacidad dinámica y orden
+        this.bufferCapacidadRestante = ThreadLocal.withInitial(() -> new int[nVuelos]);
+        this.bufferOrdenEnvios = ThreadLocal.withInitial(() -> {
+            int[] arr = new int[nEnvios];
+            for (int i = 0; i < nEnvios; i++) arr[i] = i;
+            return arr;
+        });
     }
 
     public Individuo ejecutar() {
-        Individuo mejorGlobal = null;
         long inicio   = System.currentTimeMillis();
         long deadline = params.maxTiempoMs > 0 ? (inicio + params.maxTiempoMs) : Long.MAX_VALUE;
+
+        Individuo mejorGlobal = construirSolucion(true);
+        calcularFitnessLocal(mejorGlobal);
+        
+        if (params.logIteraciones) {
+            System.out.println("Fitness Base (Greedy Inicial): " + mejorGlobal.fitness);
+        }
+
+        depositarFeromona(mejorGlobal, (params.q * 2.0) / (1.0 + mejorGlobal.fitness));
+        for (int i = 0; i < feromonas.length; i++) {
+            feromonasAlpha[i] = Math.pow(feromonas[i], params.alpha);
+        }
+
+        int iteracionesSinMejora = 0;
+        double mejorFitnessHistorico = mejorGlobal.fitness;
 
         for (int iter = 0; iter < params.maxIteraciones; iter++) {
             if (System.currentTimeMillis() >= deadline) break;
@@ -115,7 +161,7 @@ public class PlanificadorAco {
             List<Individuo> colonia = IntStream.range(0, params.numeroHormigas)
                     .parallel()
                     .mapToObj(i -> {
-                        Individuo h = construirSolucion();
+                        Individuo h = construirSolucion(false); 
                         calcularFitnessLocal(h);
                         return h;
                     })
@@ -125,17 +171,25 @@ public class PlanificadorAco {
                     .min((a, b) -> Double.compare(a.fitness, b.fitness))
                     .orElse(null);
 
-            if (mejorGlobal == null || mejorIteracion.fitness < mejorGlobal.fitness) {
+            if (mejorIteracion.fitness < mejorGlobal.fitness) {
                 mejorGlobal = mejorIteracion.clonar();
             }
 
             actualizarFeromonas(mejorIteracion, mejorGlobal);
 
+            if (mejorGlobal.fitness < mejorFitnessHistorico - 0.1) {
+                mejorFitnessHistorico = mejorGlobal.fitness;
+                iteracionesSinMejora = 0; 
+            } else {
+                iteracionesSinMejora++; 
+            }
+
             if (params.logIteraciones && (iter % params.logCada == 0 || iter == params.maxIteraciones - 1)) {
                 System.out.println("Iteracion ACO " + iter + " - Mejor Fitness: " + mejorGlobal.fitness);
             }
-            if (mejorGlobal.fitness < params.penalidadSLA) {
-                //System.out.println("Solucion optima alcanzada temprano en iteracion: " + iter);
+            
+            if (iteracionesSinMejora >= 8) {
+                if(params.logIteraciones) System.out.println("Convergencia óptima alcanzada. Deteniendo en iteración: " + iter);
                 break; 
             }
         }
@@ -143,23 +197,59 @@ public class PlanificadorAco {
         return mejorGlobal;
     }
 
-    private Individuo construirSolucion() {
+    private Individuo construirSolucion(boolean esGreedy) {
         Individuo ind = new Individuo(envios.size());
-        for (int i = 0; i < envios.size(); i++) {
-            Envio e = envios.get(i);
-            List<Vuelo> rutaVuelos = construirRutaParaEnvio(e);
-            ind.asignaciones[i] = new Ruta(rutaVuelos, e.horaIngresoMin, e.slaHoras, params.minRecojoMin);
+        
+        // 1. Clonar las capacidades máximas al buffer de esta hormiga (Toma O(N) bajísimo)
+        int[] capRestante = bufferCapacidadRestante.get();
+        System.arraycopy(capacidadMaximaVuelo, 0, capRestante, 0, capacidadMaximaVuelo.length);
+
+        // 2. Obtener y barajar el orden de procesamiento
+        int[] orden = bufferOrdenEnvios.get();
+        if (!esGreedy) {
+            ThreadLocalRandom rnd = ThreadLocalRandom.current();
+            for (int i = orden.length - 1; i > 0; i--) {
+                int index = rnd.nextInt(i + 1);
+                int temp = orden[index];
+                orden[index] = orden[i];
+                orden[i] = temp;
+            }
+        }
+
+        // 3. Procesar envíos respetando la capacidad en tiempo real
+        for (int i = 0; i < orden.length; i++) {
+            int originalIdx = orden[i];
+            Envio e = envios.get(originalIdx);
+            
+            // Pasamos capRestante al constructor de ruta
+            List<Vuelo> rutaVuelos = construirRutaConReintentos(e, 10, esGreedy, capRestante);
+            ind.asignaciones[originalIdx] = new Ruta(rutaVuelos, e.horaIngresoMin, e.slaHoras, params.minRecojoMin);
+            
+            // Si encontró ruta, se resta la capacidad del avión en vivo para que los demás paquetes no lo usen
+            if (rutaVuelos != null) {
+                for (Vuelo v : rutaVuelos) {
+                    capRestante[v.id] -= e.cantidad;
+                }
+            }
         }
         return ind;
     }
 
-    private List<Vuelo> construirRutaParaEnvio(Envio envio) {
+    private List<Vuelo> construirRutaConReintentos(Envio envio, int maxVidas, boolean esGreedy, int[] capRestante) {
+        for (int intento = 0; intento < maxVidas; intento++) {
+            boolean usarGreedy = esGreedy && (intento == 0);
+            List<Vuelo> ruta = construirRutaParaEnvio(envio, usarGreedy, capRestante);
+            if (ruta != null) return ruta; 
+        }
+        return null; 
+    }
+
+    private List<Vuelo> construirRutaParaEnvio(Envio envio, boolean esGreedy, int[] capRestante) {
         boolean[]     visitados     = bufferVisitados.get();
         List<Integer> indicesUsados = bufferIndicesUsados.get();
         indicesUsados.clear();
 
         List<Vuelo> ruta         = new ArrayList<>(params.maxEscalas);
-        // OPTIMIZACIÓN: Trabajar 100% con índices enteros, 0 strings (O(1))
         int         actualIdx    = aeropuertoIndex.get(envio.origen);
         int         destinoIdx   = aeropuertoIndex.get(envio.destino);
         int         tiempoActual = envio.horaIngresoMin;
@@ -170,24 +260,49 @@ public class PlanificadorAco {
         for (int escala = 0; escala < params.maxEscalas; escala++) {
             final int   tiempoMinimoSalida = tiempoActual + params.minEscalaMin;
             List<Vuelo> posibles           = bufferPosibles.get();
+            List<Vuelo> saturados          = bufferPosiblesSaturados.get();
             posibles.clear();
+            saturados.clear();
 
-            String actualStr = indexAeropuertoStr[actualIdx]; 
-            for (Vuelo v : grafo.obtenerVuelosDesde(actualStr)) {
+            for (Vuelo v : vuelosDesdeAeropuerto[actualIdx]) {
                 if (v.salidaMin < tiempoMinimoSalida)  continue;
                 
                 int destVueloIdx = vueloDestinoIndex[v.id];
-                if (visitados[destVueloIdx]) continue; // Acceso directo a array O(1), adiós String.equals
+                if (visitados[destVueloIdx]) continue; 
                 
-                posibles.add(v);
+                // MAGIA AQUI: Separamos los vuelos con espacio disponible de los llenos
+                if (capRestante[v.id] >= envio.cantidad) {
+                    posibles.add(v);
+                } else {
+                    saturados.add(v); // Plan de emergencia (Evitar Sin Ruta a toda costa)
+                }
             }
 
-            if (posibles.isEmpty()) {
+            List<Vuelo> candidatos;
+            if (!posibles.isEmpty()) {
+                candidatos = posibles; // Primero intenta usar aviones que sí tienen espacio
+            } else if (!saturados.isEmpty()) {
+                candidatos = saturados; // Si todos están llenos, sobrevéndelo para salvar el paquete
+            } else {
                 limpiarVisitados(visitados, indicesUsados);
                 return null;
             }
 
-            Vuelo elegido = seleccionarVueloProbabilistico(posibles, destinoIdx, tiempoActual);
+            Vuelo elegido;
+            if (esGreedy) {
+                elegido = candidatos.get(0);
+                double mejorEta = -1.0;
+                for (Vuelo v : candidatos) {
+                    double eta = calcularHeuristica(v, destinoIdx, tiempoActual);
+                    if (eta > mejorEta) {
+                        mejorEta = eta;
+                        elegido = v;
+                    }
+                }
+            } else {
+                elegido = seleccionarVueloProbabilistico(candidatos, destinoIdx, tiempoActual);
+            }
+            
             ruta.add(elegido);
             
             actualIdx    = vueloDestinoIndex[elegido.id];
@@ -196,7 +311,7 @@ public class PlanificadorAco {
             visitados[actualIdx] = true;
             indicesUsados.add(actualIdx);
 
-            if (actualIdx == destinoIdx) { // Comparar enteros O(1)
+            if (actualIdx == destinoIdx) { 
                 limpiarVisitados(visitados, indicesUsados);
                 return ruta;
             }
@@ -219,7 +334,6 @@ public class PlanificadorAco {
         for (int i = 0; i < candidatos.size(); i++) {
             Vuelo  v   = candidatos.get(i);
             
-            // OPTIMIZACIÓN: Evitar Math.pow pre-calculando o usando multiplicaciones directas
             double tau_a = feromonasAlpha[v.id]; 
             double eta   = calcularHeuristica(v, destinoFinalIdx, tiempoActual);
             
@@ -249,11 +363,9 @@ public class PlanificadorAco {
         int esperaMin = v.salidaMin - tiempoActual;
         if (esperaMin < 0) esperaMin += 24 * 60;
 
-        int duracionMin = v.llegadaMin - v.salidaMin;
-        if (duracionMin < 0) duracionMin += 24 * 60;
+        int duracionMin = duracionVueloMin[v.id];
 
         double costo = esperaMin + duracionMin;
-        // O(1) array access en vez de equals()
         if (vueloDestinoIndex[v.id] == destinoFinalIdx) costo *= 0.1;
 
         return 1.0 / (1.0 + costo);
@@ -262,12 +374,11 @@ public class PlanificadorAco {
     private void actualizarFeromonas(Individuo mejorIteracion, Individuo mejorGlobal) {
         double factorEvaporacion = Math.max(0.0, 1.0 - params.evaporacion);
         for (int i = 0; i < feromonas.length; i++) {
-            feromonas[i] = Math.max(0.0001, feromonas[i] * factorEvaporacion);
+            feromonas[i] = Math.max(0.1, feromonas[i] * factorEvaporacion);
         }
         depositarFeromona(mejorIteracion, params.q / (1.0 + mejorIteracion.fitness));
         depositarFeromona(mejorGlobal,    (params.q * 1.5) / (1.0 + mejorGlobal.fitness));
 
-        // OPTIMIZACIÓN: Precalcular potencias de feromonas UNA vez por iteracion, no por hormiga
         for (int i = 0; i < feromonas.length; i++) {
             feromonasAlpha[i] = Math.pow(feromonas[i], params.alpha);
         }
@@ -346,7 +457,6 @@ public class PlanificadorAco {
 
                 if (duracion <= 0) continue;
 
-                // OPTIMIZACIÓN: Adiós HashMap.get(String) también aquí
                 int airportIdx = vueloDestinoIndex[v.id];
                 if (airportIdx == -1) continue;
 
