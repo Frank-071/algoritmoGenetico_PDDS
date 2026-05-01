@@ -16,14 +16,24 @@ public class GrafoVuelos {
 
     private final Map<String, List<Vuelo>>   adyacencia;
     private final Map<String, Aeropuerto>    aeropuertos;
-    private final Random                     rnd = new Random(42);
+    private final List<Vuelo>                vuelos;
+    private final Random                     rnd = new Random();
 
     public GrafoVuelos(List<Vuelo> vuelos, Map<String, Aeropuerto> aeropuertos) {
+        this.vuelos = vuelos;
         this.aeropuertos = aeropuertos;
         this.adyacencia  = new HashMap<>();
         for (Vuelo v : vuelos) {
             adyacencia.computeIfAbsent(v.origen, k -> new ArrayList<>()).add(v);
         }
+    }
+
+    public Map<String, Aeropuerto> obtenerAeropuertos() {
+        return Collections.unmodifiableMap(aeropuertos);
+    }
+
+    public List<Vuelo> obtenerVuelos() {
+        return vuelos;
     }
 
     public List<Vuelo> obtenerVuelosDesde(String codigoOaci) {
@@ -39,14 +49,18 @@ public class GrafoVuelos {
     // En GrafoVuelos.java reemplaza tu método actual por este:
 
     public List<Vuelo> buscarRutaAleatoria(String origen, String destino, int horaSalidaMin, int maxEscalas) {
-        for (int intento = 0; intento < 150; intento++) {
+        return buscarRutaAleatoria(origen, destino, horaSalidaMin, maxEscalas, 10);
+    }
+
+    public List<Vuelo> buscarRutaAleatoria(String origen, String destino, int horaSalidaMin, int maxEscalas, int minEscalaMin) {
+        for (int intento = 0; intento < 100; intento++) {
             List<Vuelo> ruta = new ArrayList<>();
             String actual = origen;
             int tiempoActual = horaSalidaMin;
             boolean llego = false;
 
             for (int i = 0; i < maxEscalas; i++) {
-                int tiempoMinimoSalida = tiempoActual + 15;
+                int tiempoMinimoSalida = tiempoActual + minEscalaMin;
                 
                 // --- ESTO ES LO QUE SOLUCIONA EL ERROR ---
                 final String refActual = actual; 
@@ -55,8 +69,15 @@ public class GrafoVuelos {
                 List<Vuelo> validos = obtenerVuelosDesde(actual).stream()
                     .filter(v -> v.salidaMin >= tiempoMinimoSalida)
                     // USAMOS refActual AQUÍ:
-                    .filter(v -> esAcercamiento(refActual, v.destino, destino)) 
+                    .filter(v -> esAcercamiento(refActual, v.destino, destino))
                     .toList();
+
+                if (validos.isEmpty()) {
+                    // Fallback: si el filtro de acercamiento deja sin opciones, reintenta sin filtro
+                    validos = obtenerVuelosDesde(actual).stream()
+                        .filter(v -> v.salidaMin >= tiempoMinimoSalida)
+                        .toList();
+                }
 
                 if (validos.isEmpty()) break;
 

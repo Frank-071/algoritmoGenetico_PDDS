@@ -32,7 +32,8 @@ import java.util.Map;
 public class experimentoGa {
 
     // ── Número de réplicas ────────────────────────────────────────────────────
-    private static final int N_REPLICAS = 30;
+    //private static final int N_REPLICAS = 30;
+    private static final int N_REPLICAS = 5; //reducida para encontrar el colapso
 
     // ── Parámetros de experimentación (reducidos) ─────────────────────────────
     private static final int    TAM_POBLACION   = 100;
@@ -51,11 +52,15 @@ public class experimentoGa {
 
         // ── 1. Resolver rutas de archivos ─────────────────────────────────────
         String raiz = System.getProperty("user.dir");
+        String archivoEnvios = (args != null && args.length > 0 && !args[0].isBlank())
+            ? args[0].trim()
+            : "_envios_EBCI_50000.txt";
+
         Path rutaAeropuertosTxt = resolverRuta(raiz, "aeropuertos.txt");
         Path rutaAeropuertosCsv = resolverRuta(raiz, "aeropuertos.csv");
         Path rutaVuelos         = resolverRuta(raiz, "planes_vuelo.txt");
-        Path rutaEnvios         = resolverRuta(raiz, "_envios_EBCI_5000.txt");
-        Path rutaSalida = Paths.get(raiz, "genetico", "data", "resultados_ga.csv");
+        Path rutaEnvios         = resolverRuta(raiz, archivoEnvios);
+        Path rutaSalida = resolverRutaSalida(raiz, "resultados_ga_50000.csv");
 
         try {
             // ── 2. Cargar datos ───────────────────────────────────────────────
@@ -65,7 +70,8 @@ public class experimentoGa {
             List<Envio>  envios  = util.cargarEnvios(rutaEnvios, aeropuertos.keySet(), aeropuertos);
             GrafoVuelos  grafo   = new GrafoVuelos(vuelos, aeropuertos);
 
-            System.out.printf("Datos cargados → Aeropuertos: %d | Vuelos: %d | Envíos: %d%n",
+                System.out.printf("Datos cargados (%s) → Aeropuertos: %d | Vuelos: %d | Envíos: %d%n",
+                    archivoEnvios,
                     aeropuertos.size(), vuelos.size(), envios.size());
 
             if (envios.isEmpty() || vuelos.isEmpty()) {
@@ -74,12 +80,13 @@ public class experimentoGa {
             }
 
             // ── 3. Preparar CSV de salida ─────────────────────────────────────
+                Files.createDirectories(rutaSalida.getParent());
                 try (PrintWriter csv = new PrintWriter(new FileWriter(rutaSalida.toFile()))) {
 
                     // Encabezado para el CSV (este se queda igual para Excel)
                     csv.println("Replica,Semilla,Funcion Objetivo,% Entregados con SLA,Violaciones SLA," +
                         "Violaciones Cap. Vuelo,Violaciones Cap. Almacen,Sin Ruta," +
-                        "Tiempo Total (h),Hops Promedio,Tiempo Computo (s)");
+                        "Tiempo Total (h),Hops Promedio,Tiempo Computo (ms)");
 
                     // Encabezado de tabla para la Consola
                     String separadorTabla = "+------+---------+----------------+---------+-------+---------+-------+---------+-----------+----------+------------+";
@@ -101,7 +108,7 @@ public class experimentoGa {
                     params.tamanoTorneo     = TAMANO_TORNEO;
                     params.penalidadSLA     = PENALIDAD_SLA;
 
-                    PlanificadorGa planificador = new PlanificadorGa(grafo, envios, params);
+                    PlanificadorGa planificador = new PlanificadorGa(grafo, envios, params, (long) rep);
 
                     long t0 = System.currentTimeMillis();
                     Individuo mejor = planificador.ejecutar();
@@ -145,15 +152,15 @@ public class experimentoGa {
 
         // Contadores de carga acumulada por vuelo y almacén (igual que calcularFitness)
         java.util.Map<Integer, Integer> cargaVuelos     = new java.util.HashMap<>();
-        java.util.Map<String,  Integer> ocupAlmacenes   = new java.util.HashMap<>();
+        java.util.Map<String, java.util.List<int[]>> eventosAlmacen = new java.util.HashMap<>();
 
         double tiempoAcum  = 0.0;
         int    escalasAcum = 0;
         int    conRuta     = 0;
 
-        for (java.util.Map.Entry<Envio, Ruta> entry : mejor.asignaciones.entrySet()) {
-            Envio envio = entry.getKey();
-            Ruta  ruta  = entry.getValue();
+        for (int i = 0; i < envios.size(); i++) {
+            Envio envio = envios.get(i);
+            Ruta  ruta  = mejor.asignaciones[i];
 
             // Sin ruta asignada
             if (ruta == null || ruta.vuelos == null || ruta.vuelos.isEmpty()) {
@@ -170,14 +177,37 @@ public class experimentoGa {
             conRuta++;
 
             // Capacidad vuelos y almacenes
-            for (com.tasf_b2b.planificador.dominio.Vuelo v : ruta.vuelos) {
+            for (int j = 0; j < ruta.vuelos.size(); j++) {
+                com.tasf_b2b.planificador.dominio.Vuelo v = ruta.vuelos.get(j);
                 int cargaActual = cargaVuelos.getOrDefault(v.id, 0) + envio.cantidad;
                 cargaVuelos.put(v.id, cargaActual);
                 if (cargaActual > v.capacidad) r.violCapVuelo++;
 
-                int ocupActual = ocupAlmacenes.getOrDefault(v.destino, 0) + envio.cantidad;
-                ocupAlmacenes.put(v.destino, ocupActual);
-                if (ocupActual > 500) r.violCapAlmacen++;
+                int llegada = v.llegadaMin;
+                int duracion;
+                if (j == ruta.vuelos.size() - 1) {
+                    duracion = 10;
+                } else {
+                    com.tasf_b2b.planificador.dominio.Vuelo siguiente = ruta.vuelos.get(j + 1);
+                    duracion = siguiente.salidaMin - v.llegadaMin;
+                    if (duracion < 10) duracion = 10;
+                }
+
+                if (duracion > 0) {
+                    java.util.List<int[]> evs = eventosAlmacen.computeIfAbsent(v.destino, k -> new java.util.ArrayList<>());
+                    evs.add(new int[] {llegada, envio.cantidad});
+                    evs.add(new int[] {llegada + duracion, -envio.cantidad});
+                }
+            }
+        }
+
+        for (java.util.Map.Entry<String, java.util.List<int[]>> entry : eventosAlmacen.entrySet()) {
+            java.util.List<int[]> evs = entry.getValue();
+            evs.sort(java.util.Comparator.comparingInt(a -> a[0]));
+            int ocup = 0;
+            for (int[] ev : evs) {
+                ocup += ev[1];
+                if (ocup > 500) r.violCapAlmacen++;
             }
         }
 
@@ -196,6 +226,14 @@ public class experimentoGa {
         if (Files.exists(directa)) return directa;
         Path conModulo = Paths.get(raiz, "genetico", "data", archivo);
         if (Files.exists(conModulo)) return conModulo;
+        return directa;
+    }
+
+    private static Path resolverRutaSalida(String raiz, String archivo) {
+        Path directa = Paths.get(raiz, "data", archivo);
+        if (Files.exists(directa.getParent())) return directa;
+        Path conModulo = Paths.get(raiz, "genetico", "data", archivo);
+        if (Files.exists(conModulo.getParent())) return conModulo;
         return directa;
     }
 

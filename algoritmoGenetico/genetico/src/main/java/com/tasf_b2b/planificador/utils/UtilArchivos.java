@@ -71,8 +71,12 @@ public class UtilArchivos extends BaseParser {
                 String idCliente = f[6].trim();
                 
                 Aeropuerto aeroOrigen = aeropuertos.get(origen);
+                Aeropuerto aeroDestino = aeropuertos.get(destino);
+                int sla = (aeroOrigen != null && aeroDestino != null)
+                    ? aeroOrigen.calcularSla(aeroDestino)
+                    : (obtenerContinente(origen).equals(obtenerContinente(destino)) ? 24 : 48);
 
-                envios.add(new Envio(idPedido, origen, destino, fecha, hh, mm, cantidad, idCliente, aeroOrigen));
+                envios.add(new Envio(idPedido, origen, destino, fecha, hh, mm, cantidad, idCliente, sla, aeroOrigen));
             } catch (Exception e) {}
         }
         return envios;

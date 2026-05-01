@@ -18,4 +18,18 @@ public class ParametrosGa {
     
     // Penalidad por romper el SLA (entregar tarde) o exceder capacidad
     public double penalidadSLA = 1000.0; 
+
+    // Penalidad por no encontrar ruta
+    public double penalidadSinRuta = 1_000_000.0;
+
+    // Penalizaciones fijas por violacion de capacidad
+    public double penalidadCapVuelo = 50_000.0;
+    public double penalidadCapAlmacen = 50_000.0;
+
+    // Peso del tiempo total en el fitness (calidad base)
+    public double pesoTiempo = 1.0;
+
+    // Minimo de minutos entre vuelos (escala) y tiempo de recojo final
+    public int minEscalaMin = 10;
+    public int minRecojoMin = 10;
 }
