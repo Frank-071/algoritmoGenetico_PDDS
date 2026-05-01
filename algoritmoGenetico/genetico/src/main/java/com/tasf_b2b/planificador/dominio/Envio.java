@@ -11,6 +11,7 @@ public class Envio {
     public final int    horaIngresoMin; // minutos desde 00:00 UTC
     public final int    cantidad;
     public final String idCliente;
+    public final int    slaHoras;
     public boolean      asignado;
  
     /**
@@ -18,7 +19,7 @@ public class Envio {
      */
     public Envio(String idPedido, String origen, String destino, String fecha,
                  int hh, int mm, int cantidad, String idCliente,
-                 Aeropuerto aeropuertoOrigen) {
+                 int slaHoras, Aeropuerto aeropuertoOrigen) {
  
         this.idPedido      = idPedido;
         this.origen        = origen;
@@ -26,6 +27,7 @@ public class Envio {
         this.fecha         = fecha;
         this.cantidad      = cantidad;
         this.idCliente     = idCliente;
+        this.slaHoras      = slaHoras;
         this.asignado      = false;
  
         this.horaIngresoLocal = (hh * 60) + mm;

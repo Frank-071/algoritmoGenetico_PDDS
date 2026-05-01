@@ -8,7 +8,7 @@ public class Ruta {
     public double tiempoTotalHoras;
     public boolean cumpleSLA;
 
-    public Ruta(List<Vuelo> vuelos, int horaIngresoMin, int slaHoras) {
+    public Ruta(List<Vuelo> vuelos, int horaIngresoMin, int slaHoras, int minRecojoMin) {
         this.vuelos = vuelos;
         if (vuelos == null || vuelos.isEmpty()) {
             this.tiempoTotalHoras = Double.MAX_VALUE;
@@ -21,14 +21,15 @@ public class Ruta {
         
         int duracionMinutos;
         // Tiempo desde que entró al sistema hasta que llegó al destino final
-        if(horaIngresoMin > tiempoLlegada) {
+        if (horaIngresoMin > tiempoLlegada) {
             // ejemplo: tiempoLlegada (1am) - horaIngreso (6pm del día anterior) entonces
             // 1 - 18 + 24 = 7 horas. Que es la diferencia entre 6pm y 1am del día siguiente.
-            duracionMinutos = tiempoLlegada - horaIngresoMin + 24*60;
+            duracionMinutos = tiempoLlegada - horaIngresoMin + 24 * 60;
         }
         else {
             duracionMinutos = tiempoLlegada - horaIngresoMin;
         }
+        duracionMinutos += minRecojoMin;
         this.tiempoTotalHoras = duracionMinutos / 60.0;
         this.cumpleSLA = this.tiempoTotalHoras <= slaHoras;
     }

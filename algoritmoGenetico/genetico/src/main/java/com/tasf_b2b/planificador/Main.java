@@ -90,9 +90,9 @@ public class Main {
             
             int enviosExitosos = 0;
             
-            for (Map.Entry<Envio, Ruta> entry : mejorSolucion.asignaciones.entrySet()) {
-                Envio envio = entry.getKey();
-                Ruta ruta = entry.getValue();
+            for (int i = 0; i < envios.size(); i++) {
+                Envio envio = envios.get(i);
+                Ruta ruta = mejorSolucion.asignaciones[i];
                 
                 // Usamos la clase Asignacion para empaquetar el resultado
                 Asignacion asignacion = new Asignacion(envio, ruta);
