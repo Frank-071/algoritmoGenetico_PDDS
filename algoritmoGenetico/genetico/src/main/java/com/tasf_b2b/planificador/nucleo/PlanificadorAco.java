@@ -38,7 +38,7 @@ public class PlanificadorAco {
 
     private final ThreadLocal<boolean[]>    bufferVisitados;
     private final ThreadLocal<int[]>        bufferCargaVuelos;
-    private final ThreadLocal<int[]>        bufferOcupacion; // NUEVO USO: Radar dinámico de almacenes
+    private final ThreadLocal<int[]>        bufferOcupacion; 
     private final ThreadLocal<List<Integer>> bufferIndicesUsados;
     private final ThreadLocal<List<Vuelo>>  bufferPosibles;
     private final ThreadLocal<List<Vuelo>>  bufferPosiblesSaturados; 
@@ -117,7 +117,7 @@ public class PlanificadorAco {
         this.bufferVisitados    = ThreadLocal.withInitial(() -> new boolean[nAeropuertos]);
         this.bufferCargaVuelos  = ThreadLocal.withInitial(() -> new int[nVuelos]);
         this.bufferOcupacion    = ThreadLocal.withInitial(() -> new int[nAeropuertos]);
-        this.bufferIndicesUsados = ThreadLocal.withInitial(() -> new ArrayList<>(maxEscalas + 1));
+        this.bufferIndicesUsados = ThreadLocal.withInitial(() -> new ArrayList<>(maxEscalas + 5));
         this.bufferPosibles      = ThreadLocal.withInitial(ArrayList::new);
         this.bufferPosiblesSaturados = ThreadLocal.withInitial(ArrayList::new); 
         this.bufferPesos         = ThreadLocal.withInitial(() -> new double[nVuelos]);
@@ -202,15 +202,25 @@ public class PlanificadorAco {
         int[] capRestante = bufferCapacidadRestante.get();
         System.arraycopy(capacidadMaximaVuelo, 0, capRestante, 0, capacidadMaximaVuelo.length);
 
-        // NUEVO: Radar de congestión de almacenes para la hormiga
         int[] ocupacionAproxAlmacen = bufferOcupacion.get();
         Arrays.fill(ocupacionAproxAlmacen, 0);
 
         int[] orden = bufferOrdenEnvios.get();
+        Integer[] ordenTemp = new Integer[orden.length];
+        for (int i = 0; i < orden.length; i++) ordenTemp[i] = i;
+        Arrays.sort(ordenTemp, (a, b) -> {
+            int vuelosA = vuelosDesdeAeropuerto[aeropuertoIndex.get(envios.get(a).origen)].length;
+            int vuelosB = vuelosDesdeAeropuerto[aeropuertoIndex.get(envios.get(b).origen)].length;
+            return Integer.compare(vuelosA, vuelosB);
+        });
+        for (int i = 0; i < orden.length; i++) orden[i] = ordenTemp[i];
+
+        // Si no es greedy, shufflear solo el 60% fácil — el 40% difícil siempre va primero
         if (!esGreedy) {
             ThreadLocalRandom rnd = ThreadLocalRandom.current();
-            for (int i = orden.length - 1; i > 0; i--) {
-                int index = rnd.nextInt(i + 1);
+            int inicioShuffle = orden.length * 4 / 10;
+            for (int i = orden.length - 1; i > inicioShuffle; i--) {
+                int index = rnd.nextInt(i - inicioShuffle + 1) + inicioShuffle;
                 int temp = orden[index];
                 orden[index] = orden[i];
                 orden[i] = temp;
@@ -221,39 +231,64 @@ public class PlanificadorAco {
             int originalIdx = orden[i];
             Envio e = envios.get(originalIdx);
             
-            // Pasamos el radar de ocupación también
-            List<Vuelo> rutaVuelos = construirRutaConReintentos(e, 10, esGreedy, capRestante, ocupacionAproxAlmacen);
+            List<Vuelo> rutaVuelos = construirRutaConReintentos(e, 15, esGreedy, capRestante, ocupacionAproxAlmacen);
             ind.asignaciones[originalIdx] = new Ruta(rutaVuelos, e.horaIngresoMin, e.slaHoras, params.minRecojoMin);
             
             if (rutaVuelos != null) {
                 for (Vuelo v : rutaVuelos) {
-                    capRestante[v.id] -= e.cantidad;
-                    // Llenamos el radar: si pasamos por aquí, sumamos la carga al aeropuerto
+                    if (capRestante[v.id] >= e.cantidad) {
+                        capRestante[v.id] -= e.cantidad;
+                    }
+                    // La ocupación del almacén sí se actualiza siempre (es realista)
                     ocupacionAproxAlmacen[vueloDestinoIndex[v.id]] += e.cantidad; 
                 }
             }
         }
+
+        for (int i = 0; i < ind.asignaciones.length; i++) {
+            Ruta r = ind.asignaciones[i];
+            if (r == null || r.vuelos == null || r.vuelos.isEmpty()) {
+                Envio e = envios.get(i);
+                List<Vuelo> rutaReparada = construirRutaParaEnvio(
+                    e,
+                    false,                // no greedy
+                    capacidadMaximaVuelo, // ignora saturación real
+                    ocupacionAproxAlmacen,
+                    true,                 // modoPanico ON
+                    params.maxEscalas + 3,
+                    true                  // exploracionExtrema ON
+                );
+                ind.asignaciones[i] = new Ruta(rutaReparada, e.horaIngresoMin, e.slaHoras, params.minRecojoMin);
+            }
+        }
+
         return ind;
     }
 
     private List<Vuelo> construirRutaConReintentos(Envio envio, int maxVidas, boolean esGreedy, int[] capRestante, int[] ocupacionAproxAlmacen) {
         for (int intento = 0; intento < maxVidas; intento++) {
             boolean usarGreedy = esGreedy && (intento == 0);
-            // MODO PÁNICO: Si ya intentó 5 veces y sigue bloqueado, le permitimos saltarse las restricciones de espacio
-            boolean modoPanico = (intento >= 8); 
             
-            List<Vuelo> ruta = construirRutaParaEnvio(envio, usarGreedy, capRestante, ocupacionAproxAlmacen, modoPanico);
+            boolean modoPanico = (intento >= 5); 
+            
+            int limiteEscalas = params.maxEscalas;
+            if (intento >= 8) limiteEscalas += 1;
+            if (intento >= 12) limiteEscalas += 2;
+
+            boolean exploracionExtrema = (intento >= 12);
+
+            List<Vuelo> ruta = construirRutaParaEnvio(envio, usarGreedy, capRestante, ocupacionAproxAlmacen, modoPanico, limiteEscalas, exploracionExtrema);
             if (ruta != null) return ruta; 
         }
         return null; 
     }
 
-    private List<Vuelo> construirRutaParaEnvio(Envio envio, boolean esGreedy, int[] capRestante, int[] ocupacionAproxAlmacen, boolean modoPanico) {
+    private List<Vuelo> construirRutaParaEnvio(Envio envio, boolean esGreedy, int[] capRestante, int[] ocupacionAproxAlmacen, boolean modoPanico, int limiteEscalas, boolean exploracionExtrema) {
         boolean[]     visitados     = bufferVisitados.get();
         List<Integer> indicesUsados = bufferIndicesUsados.get();
         indicesUsados.clear();
 
-        List<Vuelo> ruta         = new ArrayList<>(params.maxEscalas);
+        List<Vuelo> ruta         = new ArrayList<>(limiteEscalas);
         int         actualIdx    = aeropuertoIndex.get(envio.origen);
         int         destinoIdx   = aeropuertoIndex.get(envio.destino);
         int         tiempoActual = envio.horaIngresoMin;
@@ -261,18 +296,22 @@ public class PlanificadorAco {
         visitados[actualIdx] = true;
         indicesUsados.add(actualIdx);
 
-        for (int escala = 0; escala < params.maxEscalas; escala++) {
-            final int   tiempoMinimoSalida = tiempoActual + params.minEscalaMin;
-            List<Vuelo> posibles           = bufferPosibles.get();
-            List<Vuelo> saturados          = bufferPosiblesSaturados.get();
+        for (int escala = 0; escala < limiteEscalas; escala++) {
+            final int tiempoMinimoSalida = tiempoActual + (escala == 0 ? 0 : params.minEscalaMin);
+            
+            List<Vuelo> posibles   = bufferPosibles.get();
+            List<Vuelo> saturados  = bufferPosiblesSaturados.get();
             posibles.clear();
             saturados.clear();
 
             for (Vuelo v : vuelosDesdeAeropuerto[actualIdx]) {
-                if (v.salidaMin < tiempoMinimoSalida)  continue;
-                
                 int destVueloIdx = vueloDestinoIndex[v.id];
                 if (visitados[destVueloIdx]) continue; 
+                
+                int salidaEfectiva = v.salidaMin;
+                while (salidaEfectiva < tiempoMinimoSalida) {
+                    salidaEfectiva += 1440; 
+                }
                 
                 if (capRestante[v.id] >= envio.cantidad) {
                     posibles.add(v);
@@ -283,15 +322,9 @@ public class PlanificadorAco {
 
             List<Vuelo> candidatos;
             
-            // Lógica de Selección y Modo Pánico
-            if (modoPanico && !saturados.isEmpty()) {
-                // Si está en modo pánico, junta todo. Obliga a que el paquete viaje así el avión esté lleno.
-                candidatos = new ArrayList<>();
-                candidatos.addAll(posibles);
-                candidatos.addAll(saturados);
-            } else if (!posibles.isEmpty()) {
+            if (!posibles.isEmpty()) {
                 candidatos = posibles; 
-            } else if (!saturados.isEmpty()) {
+            } else if (modoPanico && !saturados.isEmpty()) {
                 candidatos = saturados; 
             } else {
                 limpiarVisitados(visitados, indicesUsados);
@@ -299,24 +332,31 @@ public class PlanificadorAco {
             }
 
             Vuelo elegido;
-            if (esGreedy) {
+            if (exploracionExtrema) {
+                elegido = candidatos.get(ThreadLocalRandom.current().nextInt(candidatos.size()));
+            } else if (esGreedy) {
                 elegido = candidatos.get(0);
                 double mejorEta = -1.0;
                 for (Vuelo v : candidatos) {
-                    double eta = calcularHeuristica(v, destinoIdx, tiempoActual, ocupacionAproxAlmacen, envio.cantidad);
+                    double eta = calcularHeuristica(v, destinoIdx, tiempoActual, ocupacionAproxAlmacen, envio.cantidad, tiempoMinimoSalida);
                     if (eta > mejorEta) {
                         mejorEta = eta;
                         elegido = v;
                     }
                 }
             } else {
-                elegido = seleccionarVueloProbabilistico(candidatos, destinoIdx, tiempoActual, ocupacionAproxAlmacen, envio.cantidad);
+                elegido = seleccionarVueloProbabilistico(candidatos, destinoIdx, tiempoActual, ocupacionAproxAlmacen, envio.cantidad, tiempoMinimoSalida);
             }
             
             ruta.add(elegido);
             
-            actualIdx    = vueloDestinoIndex[elegido.id];
-            tiempoActual = elegido.llegadaMin;
+            actualIdx = vueloDestinoIndex[elegido.id];
+            
+            int salidaEfectiva = elegido.salidaMin;
+            while (salidaEfectiva < tiempoMinimoSalida) {
+                salidaEfectiva += 1440;
+            }
+            tiempoActual = salidaEfectiva + duracionVueloMin[elegido.id];
             
             visitados[actualIdx] = true;
             indicesUsados.add(actualIdx);
@@ -336,7 +376,7 @@ public class PlanificadorAco {
         usados.clear();
     }
 
-    private Vuelo seleccionarVueloProbabilistico(List<Vuelo> candidatos, int destinoFinalIdx, int tiempoActual, int[] ocupacionAproxAlmacen, int cantEnvio) {
+    private Vuelo seleccionarVueloProbabilistico(List<Vuelo> candidatos, int destinoFinalIdx, int tiempoActual, int[] ocupacionAproxAlmacen, int cantEnvio, int tiempoMinimoSalida) {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         double[] pesos = bufferPesos.get();
         double suma = 0.0;
@@ -345,7 +385,7 @@ public class PlanificadorAco {
             Vuelo  v   = candidatos.get(i);
             
             double tau_a = feromonasAlpha[v.id]; 
-            double eta   = calcularHeuristica(v, destinoFinalIdx, tiempoActual, ocupacionAproxAlmacen, cantEnvio);
+            double eta   = calcularHeuristica(v, destinoFinalIdx, tiempoActual, ocupacionAproxAlmacen, cantEnvio, tiempoMinimoSalida);
             
             double eta_b;
             if (betaEs1) eta_b = eta;
@@ -369,10 +409,12 @@ public class PlanificadorAco {
         return candidatos.get(candidatos.size() - 1);
     }
 
-    private double calcularHeuristica(Vuelo v, int destinoFinalIdx, int tiempoActual, int[] ocupacionAproxAlmacen, int cantEnvio) {
-        int esperaMin = v.salidaMin - tiempoActual;
-        if (esperaMin < 0) esperaMin += 24 * 60;
-
+    private double calcularHeuristica(Vuelo v, int destinoFinalIdx, int tiempoActual, int[] ocupacionAproxAlmacen, int cantEnvio, int tiempoMinimoSalida) {
+        int salidaEfectiva = v.salidaMin;
+        while (salidaEfectiva < tiempoMinimoSalida) {
+            salidaEfectiva += 1440;
+        }
+        int esperaMin = salidaEfectiva - tiempoActual;
         int duracionMin = duracionVueloMin[v.id];
 
         double costo = esperaMin + duracionMin;
@@ -380,7 +422,6 @@ public class PlanificadorAco {
 
         if (destAirport == destinoFinalIdx) costo *= 0.1;
         
-        // NUEVO: Penalidad de Tráfico. Si el aeropuerto está proyectando llenarse, la hormiga lo ve más "caro" y lo evita.
         if (destAirport != destinoFinalIdx && (ocupacionAproxAlmacen[destAirport] + cantEnvio > capacidadAlmacen[destAirport])) {
             costo *= 5.0; 
         }

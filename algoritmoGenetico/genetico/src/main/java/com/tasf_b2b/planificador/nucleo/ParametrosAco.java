@@ -29,8 +29,8 @@ public class ParametrosAco {
     // --- Pesos y Penalidades para el Fitness ---
     public double penalidadSLA = 15.0;
     public double penalidadSinRuta = 10000.0;
-    public double penalidadCapVuelo = 10000.0;
-    public double penalidadCapAlmacen = 50000.0;
+    public double penalidadCapVuelo = 1000.0;
+    public double penalidadCapAlmacen = 1000.0;
     public double pesoTiempo = 1.0; // Costo base por hora de viaje
 
     // Control de logging por iteración
