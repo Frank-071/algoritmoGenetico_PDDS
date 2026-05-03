@@ -32,8 +32,8 @@ import java.util.Map;
 public class experimentoGa {
 
     // ── Número de réplicas ────────────────────────────────────────────────────
-    //private static final int N_REPLICAS = 30;
-    private static final int N_REPLICAS = 5; //reducida para encontrar el colapso
+    private static final int N_REPLICAS = 30;
+    //private static final int N_REPLICAS = 5; //reducida para encontrar el colapso
 
     // ── Parámetros de experimentación (reducidos) ─────────────────────────────
     private static final int    TAM_POBLACION   = 100;
@@ -54,21 +54,23 @@ public class experimentoGa {
         String raiz = System.getProperty("user.dir");
         String archivoEnvios = (args != null && args.length > 0 && !args[0].isBlank())
             ? args[0].trim()
-            : "_envios_EBCI_50000.txt";
+            : "_envios_EBCI_20000_.txt";
 
         Path rutaAeropuertosTxt = resolverRuta(raiz, "aeropuertos.txt");
         Path rutaAeropuertosCsv = resolverRuta(raiz, "aeropuertos.csv");
         Path rutaVuelos         = resolverRuta(raiz, "planes_vuelo.txt");
         Path rutaEnvios         = resolverRuta(raiz, archivoEnvios);
-        Path rutaSalida = resolverRutaSalida(raiz, "resultados_ga_50000.csv");
+        Path rutaSalida = resolverRutaSalida(raiz, "resultados_ga_20000.csv");
 
         try {
             // ── 2. Cargar datos ───────────────────────────────────────────────
             UtilArchivos util = new UtilArchivos();
+            System.out.println("TXT → " + rutaAeropuertosTxt.toAbsolutePath());
+            System.out.println("CSV → " + rutaAeropuertosCsv.toAbsolutePath());
+            System.out.println("CSV existe: " + java.nio.file.Files.exists(rutaAeropuertosCsv));
             Map<String, Aeropuerto> aeropuertos = util.cargarAeropuertos(rutaAeropuertosTxt, rutaAeropuertosCsv);
             List<Vuelo>  vuelos  = util.cargarVuelos(rutaVuelos, aeropuertos.keySet());
             List<Envio>  envios  = util.cargarEnvios(rutaEnvios, aeropuertos.keySet(), aeropuertos);
-            GrafoVuelos  grafo   = new GrafoVuelos(vuelos, aeropuertos);
 
                 System.out.printf("Datos cargados (%s) → Aeropuertos: %d | Vuelos: %d | Envíos: %d%n",
                     archivoEnvios,
@@ -108,6 +110,7 @@ public class experimentoGa {
                     params.tamanoTorneo     = TAMANO_TORNEO;
                     params.penalidadSLA     = PENALIDAD_SLA;
 
+                    GrafoVuelos grafo = new GrafoVuelos(vuelos, aeropuertos);
                     PlanificadorGa planificador = new PlanificadorGa(grafo, envios, params, (long) rep);
 
                     long t0 = System.currentTimeMillis();
@@ -115,7 +118,12 @@ public class experimentoGa {
                     long tiempoMs = System.currentTimeMillis() - t0;
 
                     // ── 5. Calcular métricas de la solución ───────────────────
-                    ResultadoReplica r = calcularMetricas(mejor, envios);
+                    ResultadoReplica r = calcularMetricas(mejor, envios, 
+                        grafo.obtenerAeropuertos().entrySet().stream()
+                            .collect(java.util.stream.Collectors.toMap(
+                                e -> e.getKey(),
+                                e -> e.getValue().capacidad)));
+
 
                     // ── 6. Escribir fila CSV ──────────────────────────────────
                     csv.printf(Locale.US, "%d,%d,%.2f,%.2f,%d,%d,%d,%d,%.2f,%.2f,%d%n",
@@ -145,7 +153,9 @@ public class experimentoGa {
     // ─────────────────────────────────────────────────────────────────────────
     // Calcula todas las métricas secundarias a partir del Individuo solución
     // ─────────────────────────────────────────────────────────────────────────
-    private static ResultadoReplica calcularMetricas(Individuo mejor, List<Envio> envios) {
+    private static ResultadoReplica calcularMetricas(Individuo mejor, List<Envio> envios,
+        Map<String, Integer> capacidadPorAeropuerto
+    ) {
 
         ResultadoReplica r = new ResultadoReplica();
         int totalEnvios = envios.size();
@@ -226,7 +236,7 @@ public class experimentoGa {
         if (Files.exists(directa)) return directa;
         Path conModulo = Paths.get(raiz, "genetico", "data", archivo);
         if (Files.exists(conModulo)) return conModulo;
-        return directa;
+        return conModulo;
     }
 
     private static Path resolverRutaSalida(String raiz, String archivo) {

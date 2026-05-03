@@ -9,7 +9,13 @@ public class UtilArchivos extends BaseParser {
 
     public Map<String, Aeropuerto> cargarAeropuertos(Path txt, Path csv) throws IOException {
         ParserAeropuertos parserAero = new ParserAeropuertos();
-        parserAero.fromTXTtoCSV(txt, csv);
+
+        if (Files.exists(csv) && Files.size(csv) > 0) {
+            System.out.println("CSV de aeropuertos encontrado...");
+        } else {
+            parserAero.fromTXTtoCSV(txt, csv);
+        }
+
         return parserAero.fromCSVToRuntimeObjects(csv);
     }
 
